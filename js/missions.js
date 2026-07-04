@@ -97,3 +97,34 @@ function renderByDate(date) {
 
 // EXPORT POUR APP
 window.renderMissionsByDate = renderByDate;
+window.renderDashboard = function () {
+
+    const user = JSON.parse(localStorage.getItem("BLEU4_USER"));
+    if (user.role !== "commandement") return;
+
+    let total = 0;
+    let present = 0;
+    let absent = 0;
+
+    Object.values(missions).forEach(m => {
+
+        total++;
+
+        present += Object.keys(m.participants || {}).length;
+        absent += Object.keys(m.absent || {}).length;
+    });
+
+    const pending = Math.max(0, total * 2 - (present + absent));
+
+    const t = document.getElementById("statsTotal");
+    const p = document.getElementById("statsPresent");
+    const a = document.getElementById("statsAbsent");
+    const s = document.getElementById("statsPending");
+
+    if (!t) return;
+
+    t.innerText = `Missions : ${total}`;
+    p.innerText = `Présents : ${present}`;
+    a.innerText = `Absents : ${absent}`;
+    s.innerText = `Sans réponse : ${pending}`;
+};
