@@ -1,4 +1,6 @@
-// 🔥 FIREBASE CONFIG BLEU4
+// =======================
+// FIREBASE INIT BLEU4 V2
+// =======================
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 
@@ -17,6 +19,9 @@ import {
     signInAnonymously
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 
+// =======================
+// CONFIG
+// =======================
 const firebaseConfig = {
     apiKey: "AIzaSyCOTja98aA-0umXrqm2c2k4frUFn6why1o",
     authDomain: "bleu-4.firebaseapp.com",
@@ -27,22 +32,21 @@ const firebaseConfig = {
     appId: "1:788139266954:web:c1896f25eb57687846ae73"
 };
 
-// Initialisation
+// =======================
+// INIT
+// =======================
 const app = initializeApp(firebaseConfig);
-
 const db = getDatabase(app);
-
 const auth = getAuth(app);
 
-// Connexion anonyme automatique
+// connexion anonyme obligatoire
 signInAnonymously(auth)
-    .then(() => {
-        console.log("✅ Connecté à Firebase");
-    })
-    .catch((error) => {
-        console.error("Erreur Firebase Auth :", error);
-    });
+    .then(() => console.log("Firebase OK"))
+    .catch(err => console.error("Auth error", err));
 
+// =======================
+// EXPORTS
+// =======================
 export {
     db,
     ref,
