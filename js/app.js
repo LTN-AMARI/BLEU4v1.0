@@ -1,3 +1,4 @@
+
 // =======================
 // USER SESSION
 // =======================
@@ -18,20 +19,20 @@ if (userInfo) {
 }
 
 if (logoutBtn) {
-    logoutBtn.addEventListener("click", () => {
+    logoutBtn.onclick = () => {
         localStorage.removeItem("BLEU4_USER");
         window.location.href = "index.html";
-    });
+    };
 }
 
 // =======================
-// CALENDAR STATE
+// STATE
 // =======================
 let currentDate = new Date();
 window.selectedDate = null;
 
 // =======================
-// RENDER CALENDAR MONTH
+// CALENDAR SAFE
 // =======================
 window.renderCalendar = function (missions = {}) {
 
@@ -48,37 +49,37 @@ window.renderCalendar = function (missions = {}) {
         "Juillet","Août","Septembre","Octobre","Novembre","Décembre"
     ];
 
-    // HEADER MONTH
+    // HEADER
     const header = document.createElement("div");
     header.style.textAlign = "center";
-    header.style.fontSize = "20px";
     header.style.marginBottom = "10px";
+
     header.innerHTML = `
-        <button id="prevMonth">◀</button>
-        <b style="margin:0 15px">${monthNames[month]} ${year}</b>
-        <button id="nextMonth">▶</button>
+        <button id="prev">◀</button>
+        <b>${monthNames[month]} ${year}</b>
+        <button id="next">▶</button>
     `;
 
     calendar.appendChild(header);
 
-    document.getElementById("prevMonth").onclick = () => {
-        currentDate.setMonth(currentDate.getMonth() - 1);
-        renderCalendar(missions);
-    };
+    setTimeout(() => {
+        const prev = document.getElementById("prev");
+        const next = document.getElementById("next");
 
-    document.getElementById("nextMonth").onclick = () => {
-        currentDate.setMonth(currentDate.getMonth() + 1);
-        renderCalendar(missions);
-    };
+        if (prev) {
+            prev.onclick = () => {
+                currentDate.setMonth(currentDate.getMonth() - 1);
+                renderCalendar(missions);
+            };
+        }
 
-    // DAYS HEADER
-    const daysRow = document.createElement("div");
-    daysRow.style.display = "grid";
-    daysRow.style.gridTemplateColumns = "repeat(7, 1fr)";
-    daysRow.style.textAlign = "center";
-    daysRow.style.fontWeight = "bold";
-    daysRow.innerHTML = "<div>L</div><div>M</div><div>M</div><div>J</div><div>V</div><div>S</div><div>D>";
-    calendar.appendChild(daysRow);
+        if (next) {
+            next.onclick = () => {
+                currentDate.setMonth(currentDate.getMonth() + 1);
+                renderCalendar(missions);
+            };
+        }
+    }, 0);
 
     // GRID
     const grid = document.createElement("div");
@@ -86,26 +87,21 @@ window.renderCalendar = function (missions = {}) {
     grid.style.gridTemplateColumns = "repeat(7, 1fr)";
     grid.style.gap = "5px";
 
-    const firstDay = new Date(year, month, 1).getDay();
     const daysInMonth = new Date(year, month + 1, 0).getDate();
-
-    let startOffset = firstDay === 0 ? 6 : firstDay - 1;
-
-    for (let i = 0; i < startOffset; i++) {
-        grid.appendChild(document.createElement("div"));
-    }
 
     for (let day = 1; day <= daysInMonth; day++) {
 
         const dateStr = `${year}-${String(month+1).padStart(2,"0")}-${String(day).padStart(2,"0")}`;
 
         const cell = document.createElement("div");
+        cell.innerText = day;
         cell.style.padding = "10px";
-        cell.style.border = "1px solid #ddd";
-        cell.style.cursor = "pointer";
+        cell.style.border = "1px solid #ccc";
         cell.style.textAlign = "center";
+        cell.style.cursor = "pointer";
 
         const hasMission = Object.values(missions).some(m =>
+            m.startDate && m.endDate &&
             dateStr >= m.startDate && dateStr <= m.endDate
         );
 
@@ -113,16 +109,9 @@ window.renderCalendar = function (missions = {}) {
             cell.style.background = "#f5d76e";
         }
 
-        const today = new Date().toISOString().split("T")[0];
-        if (dateStr === today) {
-            cell.style.border = "2px solid black";
-        }
-
-        cell.innerText = day;
-
         cell.onclick = () => {
             window.selectedDate = dateStr;
-            renderDayMissions(dateStr, missions);
+            renderDay(dateStr, missions);
         };
 
         grid.appendChild(cell);
@@ -132,15 +121,18 @@ window.renderCalendar = function (missions = {}) {
 };
 
 // =======================
-// DAY MISSIONS (DÉROULÉ)
+// DAY VIEW
 // =======================
-function renderDayMissions(date, missions) {
+function renderDay(date, missions) {
 
     const missionsDiv = document.getElementById("missions");
+    if (!missionsDiv) return;
+
     missionsDiv.innerHTML = "";
 
     Object.values(missions).forEach(m => {
 
+        if (!m.startDate || !m.endDate) return;
         if (date < m.startDate || date > m.endDate) return;
 
         const div = document.createElement("div");
@@ -152,21 +144,9 @@ function renderDayMissions(date, missions) {
             <p>📍 ${m.location || ""}</p>
 
             <details>
-                <summary>Voir détails</summary>
-                <p>Début: ${m.startDate}</p>
-                <p>Fin: ${m.endDate}</p>
-                <p>Concernés: ${m.concerned || ""}</p>
+                <summary>Détails</summary>
+                <p>${m.startDate} → ${m.endDate}</p>
             </details>
-
-            <button onclick="participate('${m.id}','present')"
-                style="background:green;color:white;">
-                Je participe
-            </button>
-
-            <button onclick="participate('${m.id}','absent')"
-                style="background:red;color:white;">
-                Indisponible
-            </button>
         `;
 
         missionsDiv.appendChild(div);
