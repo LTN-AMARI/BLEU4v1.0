@@ -52,37 +52,32 @@ window.createMission = function (m) {
 // =======================
 // PARTICIPATION
 // =======================
-window.selectParticipation = function (id, status) {
 
-    window.pending = { id, status };
-
-    alert("Choix enregistré. Clique sur VALIDER.");
-};
-
-window.validateParticipation = function () {
-
-    if (!window.pending) return;
-
-    const { id, status } = window.pending;
+window.participate = function (id, status) {
 
     const m = missions[id];
     if (!m) return;
 
     const login = user.login;
 
+    // sécurité structure
+    if (!m.participants) m.participants = {};
+    if (!m.absent) m.absent = {};
+
+    // reset
+    delete m.participants[login];
+    delete m.absent[login];
+
+    // action directe
     if (status === "present") {
         m.participants[login] = true;
-        delete m.absent[login];
     }
 
     if (status === "absent") {
         m.absent[login] = true;
-        delete m.participants[login];
     }
 
     update(ref(db, "missions/" + id), m);
-
-    window.pending = null;
 };
 
 // =======================
