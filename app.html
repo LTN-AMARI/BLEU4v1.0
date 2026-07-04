@@ -4,23 +4,21 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>BLEU4 - APP</title>
+    <title>BLEU4</title>
 
     <link rel="stylesheet" href="css/style.css">
 </head>
 
 <body>
 
-<!-- TOP BAR -->
 <div class="topbar">
     <div id="userInfo">Chargement...</div>
     <button id="logoutBtn">Déconnexion</button>
 </div>
 
-<!-- CONTAINER PRINCIPAL -->
 <div class="container">
 
-    <!-- CREATION MISSION -->
+    <!-- CREATION (COMMANDEMENT UNIQUEMENT) -->
     <div id="createMissionBox" class="card">
 
         <h2>CRÉER UNE MISSION</h2>
@@ -30,36 +28,30 @@
         <input id="mStartDate" type="date">
         <input id="mEndDate" type="date">
         <input id="mLocation" placeholder="Lieu">
-
-        <input id="mConcerned" placeholder="Concernés (tous ou SDT,CPL...)">
+        <input id="mConcerned" placeholder="Concernés">
 
         <button id="createBtn">Créer mission</button>
 
     </div>
 
-    <!-- DASHBOARD -->
-    <div id="dashboard" class="card">
+    <!-- CALENDRIER -->
+    <div class="card">
 
-        <h2>TABLEAU DE BORD</h2>
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+            <button id="prevMonth">◀</button>
+            <h2 id="monthTitle"></h2>
+            <button id="nextMonth">▶</button>
+        </div>
 
-        <p id="statsTotal"></p>
-        <p id="statsPresent"></p>
-        <p id="statsAbsent"></p>
-        <p id="statsPending"></p>
-
+        <div id="calendar"></div>
     </div>
 
-    <!-- CALENDRIER -->
-    <h2>CALENDRIER</h2>
-    <div id="calendar"></div>
-
     <!-- MISSIONS -->
-    <h2 id="selectedDateTitle">MISSIONS</h2>
+    <h2>Missions</h2>
     <div id="missions"></div>
 
 </div>
 
-<!-- SCRIPTS (ORDRE IMPORTANT) -->
 <script type="module" src="js/firebase.js"></script>
 <script type="module" src="js/missions.js"></script>
 <script type="module" src="js/app.js"></script>
