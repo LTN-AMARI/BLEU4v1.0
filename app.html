@@ -47,6 +47,29 @@
 </div>
 
 <!-- MISSIONS -->
+    window.renderDashboard = function () {
+
+    const t = document.getElementById("statsTotal");
+    const p = document.getElementById("statsPresent");
+    const a = document.getElementById("statsAbsent");
+
+    let total = Object.keys(missions).length;
+    let present = 0;
+    let absent = 0;
+
+    Object.values(missions).forEach(m => {
+        const part = m.participants || {};
+
+        Object.values(part).forEach(v => {
+            if (v === "present") present++;
+            if (v === "absent") absent++;
+        });
+    });
+
+    if (t) t.innerText = `Missions : ${total}`;
+    if (p) p.innerText = `Présents : ${present}`;
+    if (a) a.innerText = `Indisponibles : ${absent}`;
+};
     <div>
   🟢 Présents :
   ${Object.entries(participants)
