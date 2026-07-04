@@ -18,36 +18,27 @@
 
 <div class="container">
 
-    <!-- CREATION (COMMANDEMENT UNIQUEMENT) -->
+    <!-- CREATION -->
     <div id="createMissionBox" class="card">
 
-        <h2>CRÉER UNE MISSION</h2>
+        <h2>Créer mission</h2>
 
         <input id="mTitle" placeholder="Titre">
         <input id="mDesc" placeholder="Description">
         <input id="mStartDate" type="date">
         <input id="mEndDate" type="date">
         <input id="mLocation" placeholder="Lieu">
-        <input id="mConcerned" placeholder="Concernés">
 
         <button id="createBtn">Créer mission</button>
-
     </div>
 
     <!-- CALENDRIER -->
     <div class="card">
-
-        <div style="display:flex;justify-content:space-between;align-items:center;">
-            <button id="prevMonth">◀</button>
-            <h2 id="monthTitle"></h2>
-            <button id="nextMonth">▶</button>
-        </div>
-
+        <h2 id="monthTitle"></h2>
         <div id="calendar"></div>
     </div>
 
     <!-- MISSIONS -->
-    <h2>Missions</h2>
     <div id="missions"></div>
 
 </div>
@@ -57,5 +48,4 @@
 <script type="module" src="js/app.js"></script>
 
 </body>
-
 </html>
