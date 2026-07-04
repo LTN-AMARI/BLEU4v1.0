@@ -66,27 +66,42 @@ window.deleteMission = function (id) {
 
 // RENDER
 function render() {
-  const participants = m.participants || {};
 
-  missionsDiv.innerHTML = "";
+const missionsDiv = document.getElementById("missions");
+if (!missionsDiv) return;
 
-  Object.values(missions).forEach(m => {
+missionsDiv.innerHTML = "";
 
-    const div = document.createElement("div");
+const list = Object.values(missions || {});
 
-    div.innerHTML = `
-      <h3>${m.title}</h3>
-      <p>${m.start} → ${m.end}</p>
+list.forEach(m => {
 
-      <button onclick="participate('${m.id}','present')">✔</button>
-      <button onclick="participate('${m.id}','absent')">❌</button>
+const p = m.participants || {};
 
-      ${user.role === "commandement"
-        ? `<button onclick="deleteMission('${m.id}')">Supprimer</button>`
-        : ""
-      }
-    `;
+const present = Object.entries(p).filter(([_,v]) => v === "present");
+const absent = Object.entries(p).filter(([_,v]) => v === "absent");
 
-    missionsDiv.appendChild(div);
-  });
+const div = document.createElement("div");
+
+div.innerHTML = `
+<h3>${m.title || ""}</h3>
+<p>${m.start || ""} → ${m.end || ""}</p>
+
+<button onclick="participate('${m.id}','present')">✔ Présent</button>
+<button onclick="participate('${m.id}','absent')">❌ Indisponible</button>
+
+<div>
+<b>🟢 Présents</b><br>
+${present.length ? present.map(x => x[0]).join("<br>") : "Aucun"}
+</div>
+
+<div>
+<b>🔴 Absents</b><br>
+${absent.length ? absent.map(x => x[0]).join("<br>") : "Aucun"}
+</div>
+`;
+
+missionsDiv.appendChild(div);
+});
+
 }
