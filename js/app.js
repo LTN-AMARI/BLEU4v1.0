@@ -1,3 +1,4 @@
+
 const user = JSON.parse(localStorage.getItem("BLEU4_USER"));
 
 if (!user) {
@@ -10,24 +11,30 @@ if (!user) {
 const userInfo = document.getElementById("userInfo");
 const logoutBtn = document.getElementById("logoutBtn");
 
-userInfo.innerText = `${user.login} — ${user.role.toUpperCase()}`;
+if (userInfo) {
+    userInfo.innerText = `${user.login} — ${user.role.toUpperCase()}`;
+}
 
-logoutBtn.addEventListener("click", () => {
-    localStorage.removeItem("BLEU4_USER");
-    window.location.href = "index.html";
-});
+if (logoutBtn) {
+    logoutBtn.addEventListener("click", () => {
+        localStorage.removeItem("BLEU4_USER");
+        window.location.href = "index.html";
+    });
+}
 
 // =======================
-// DATE SELECTION
+// VARIABLES GLOBALES
 // =======================
 window.selectedDate = null;
 
 // =======================
-// CALENDAR RENDER
+// CALENDRIER
 // =======================
 window.renderCalendar = function (missions = {}) {
 
     const calendar = document.getElementById("calendar");
+    if (!calendar) return;
+
     calendar.innerHTML = "";
 
     const now = new Date();
@@ -44,7 +51,6 @@ window.renderCalendar = function (missions = {}) {
         day.className = "day";
         day.innerText = i;
 
-        // highlight si mission
         const hasMission = Object.values(missions).some(m => m.date === date);
 
         if (hasMission) {
@@ -66,52 +72,52 @@ window.renderCalendar = function (missions = {}) {
 };
 
 // =======================
-// INITIAL LOAD
+// CREATION MISSION (UI)
+// =======================
+const box = document.getElementById("createMissionBox");
+
+if (box && user.role !== "commandement") {
+    box.style.display = "none";
+}
+
+const createBtn = document.getElementById("createBtn");
+
+if (createBtn) {
+    createBtn.addEventListener("click", () => {
+
+        const mission = {
+            title: document.getElementById("mTitle")?.value,
+            description: document.getElementById("mDesc")?.value,
+            date: document.getElementById("mDate")?.value,
+            time: document.getElementById("mTime")?.value,
+            location: document.getElementById("mLocation")?.value,
+            concerned: document.getElementById("mConcerned")?.value
+        };
+
+        if (!mission.title || !mission.date) {
+            alert("Titre + date obligatoires");
+            return;
+        }
+
+        if (window.createMission) {
+            window.createMission(mission);
+        }
+
+        alert("Mission créée");
+
+        // reset
+        ["mTitle","mDesc","mDate","mTime","mLocation","mConcerned"].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.value = "";
+        });
+    });
+}
+
+// =======================
+// INIT
 // =======================
 window.onload = function () {
-
     if (window.renderCalendar) {
         window.renderCalendar({});
     }
 };
-const user = JSON.parse(localStorage.getItem("BLEU4_USER"));
-
-// cacher si pas commandement
-const box = document.getElementById("createMissionBox");
-
-if (user.role !== "commandement") {
-    box.style.display = "none";
-}
-
-// bouton création
-document.getElementById("createBtn").addEventListener("click", () => {
-
-    const mission = {
-        title: document.getElementById("mTitle").value,
-        description: document.getElementById("mDesc").value,
-        date: document.getElementById("mDate").value,
-        time: document.getElementById("mTime").value,
-        location: document.getElementById("mLocation").value,
-        concerned: document.getElementById("mConcerned").value
-    };
-
-    if (!mission.title || !mission.date) {
-        alert("Titre + date obligatoires");
-        return;
-    }
-
-    // appel firebase (via missions.js)
-    if (window.createMission) {
-        window.createMission(mission);
-    }
-
-    alert("Mission créée");
-
-    // reset
-    document.getElementById("mTitle").value = "";
-    document.getElementById("mDesc").value = "";
-    document.getElementById("mDate").value = "";
-    document.getElementById("mTime").value = "";
-    document.getElementById("mLocation").value = "";
-    document.getElementById("mConcerned").value = "";
-});
