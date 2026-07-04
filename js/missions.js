@@ -1,18 +1,29 @@
+
 import { db, ref, set, onValue, update, remove } from "./firebase.js";
 
 const user = JSON.parse(localStorage.getItem("BLEU4_USER")) || {};
+
 let missions = {};
 
 const missionsDiv = document.getElementById("missions");
 
+// =======================
 // LOAD
+// =======================
 onValue(ref(db, "missions"), (snap) => {
-  missions = snap.val() || {};
-  if (window.renderCalendar) window.renderCalendar(missions);
-  renderMissions();
+
+    missions = snap.val() || {};
+
+    if (window.renderCalendar) {
+        window.renderCalendar(missions);
+    }
+
+    renderMissions();
 });
 
+// =======================
 // CREATE
+// =======================
 window.createMission = function (m) {
 
     const id = Date.now().toString();
@@ -29,47 +40,56 @@ window.createMission = function (m) {
     });
 };
 
+// =======================
 // PARTICIPATION
+// =======================
 window.participate = function (id, status) {
-  const m = missions[id];
-  if (!m) return;
 
-  const name = user.login || "user";
+    const m = missions[id];
+    if (!m) return;
 
-  if (!m.participants) m.participants = {};
+    const name = user.login || "user";
 
-  m.participants[name] = status;
+    if (!m.participants) m.participants = {};
 
-  update(ref(db, "missions/" + id), m);
+    m.participants[name] = status;
+
+    update(ref(db, "missions/" + id), m);
 };
 
+// =======================
 // DELETE
+// =======================
 window.deleteMission = function (id) {
-  remove(ref(db, "missions/" + id));
+    remove(ref(db, "missions/" + id));
 };
 
-// RENDER LIST
+// =======================
+// RENDER
+// =======================
 function renderMissions() {
-  if (!missionsDiv) return;
 
-  missionsDiv.innerHTML = "";
+    if (!missionsDiv) return;
 
-  Object.values(missions).forEach(m => {
-    const div = document.createElement("div");
+    missionsDiv.innerHTML = "";
 
-    div.innerHTML = `
-      <h3>${m.title}</h3>
-      <p>${m.start} → ${m.end}</p>
+    Object.values(missions).forEach(m => {
 
-      <button onclick="participate('${m.id}','present')">OK</button>
-      <button onclick="participate('${m.id}','absent')">NO</button>
+        const div = document.createElement("div");
 
-      ${user.role === "commandement"
-        ? `<button onclick="deleteMission('${m.id}')">Delete</button>`
-        : ""
-      }
-    `;
+        div.innerHTML = `
+            <h3>${m.title}</h3>
+            <p>${m.start} → ${m.end}</p>
 
-    missionsDiv.appendChild(div);
-  });
+            <button onclick="participate('${m.id}','present')">✔ OK</button>
+            <button onclick="participate('${m.id}','absent')">❌ NO</button>
+
+            ${user.role === "commandement"
+                ? `<button onclick="deleteMission('${m.id}')">Supprimer</button>`
+                : ""
+            }
+        `;
+
+        missionsDiv.appendChild(div);
+    });
 }
