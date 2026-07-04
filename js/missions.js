@@ -13,7 +13,9 @@ onValue(ref(db, "missions"), (snap) => {
     if (window.renderCalendar) {
         window.renderCalendar(missions);
     }
-
+if (window.renderDashboard) {
+    window.renderDashboard();
+}
     if (window.selectedDate) {
         renderByDate(window.selectedDate);
     }
