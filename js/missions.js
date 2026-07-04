@@ -1,27 +1,38 @@
+
 import { db, ref, set, onValue, update, remove } from "./firebase.js";
 
+// =======================
+// USER
+// =======================
 const user = JSON.parse(localStorage.getItem("BLEU4_USER"));
 
 const missionsDiv = document.getElementById("missions");
 
 let missions = {};
 
-// CHARGEMENT REALTIME
-onValue(ref(db, "missions"), (snap) => {
-    missions = snap.val() || {};
+// =======================
+// REALTIME LISTENER
+// =======================
+onValue(ref(db, "missions"), (snapshot) => {
+
+    missions = snapshot.val() || {};
 
     if (window.renderCalendar) {
         window.renderCalendar(missions);
     }
-if (window.renderDashboard) {
-    window.renderDashboard();
-}
+
+    if (window.renderDashboard) {
+        window.renderDashboard();
+    }
+
     if (window.selectedDate) {
         renderByDate(window.selectedDate);
     }
 });
 
-// CREER MISSION
+// =======================
+// CREATE MISSION
+// =======================
 window.createMission = function (m) {
 
     const id = Date.now().toString();
@@ -30,52 +41,70 @@ window.createMission = function (m) {
         id,
         title: m.title,
         description: m.description,
-        date: m.date,
-        time: m.time,
+        startDate: m.startDate,
+        endDate: m.endDate,
         location: m.location,
         concerned: m.concerned,
+
         participants: {},
         absent: {},
+
         createdAt: Date.now()
     });
 
+    // notification simple (si existant)
     if (window.createNotification) {
-        window.createNotification("Nouvelle mission le " + m.date);
+        window.createNotification(
+            `Nouvelle mission du ${m.startDate} au ${m.endDate}`
+        );
     }
 };
 
+// =======================
 // PARTICIPATION
+// =======================
 window.participate = function (id, status) {
 
     const m = missions[id];
     if (!m) return;
 
+    const login = user.login;
+
     if (status === "present") {
-        m.participants[user.login] = user;
-        delete m.absent[user.login];
+        m.participants[login] = user;
+        delete m.absent[login];
     }
 
     if (status === "absent") {
-        m.absent[user.login] = user;
-        delete m.participants[user.login];
+        m.absent[login] = user;
+        delete m.participants[login];
     }
 
     update(ref(db, "missions/" + id), m);
 };
 
-// SUPPRESSION
+// =======================
+// DELETE MISSION
+// =======================
 window.deleteMission = function (id) {
     remove(ref(db, "missions/" + id));
 };
 
-// AFFICHAGE PAR DATE
+// =======================
+// RENDER BY DATE
+// =======================
 function renderByDate(date) {
 
     missionsDiv.innerHTML = "";
 
     Object.values(missions).forEach(m => {
 
-        if (m.date !== date) return;
+        if (!m.startDate || !m.endDate) return;
+
+        // mission active sur la date
+        const isInRange = date >= m.startDate && date <= m.endDate;
+
+        if (!isInRange) return;
 
         const div = document.createElement("div");
         div.className = "mission";
@@ -85,7 +114,9 @@ function renderByDate(date) {
         div.innerHTML = `
             <h3>${m.title}</h3>
             <p>${m.description || ""}</p>
-            <p>${m.time || ""} - ${m.location || ""}</p>
+
+            <p>📅 Du ${m.startDate} au ${m.endDate}</p>
+            <p>📍 ${m.location || ""}</p>
 
             <button onclick="participate('${m.id}', 'present')">Je participe</button>
             <button onclick="participate('${m.id}', 'absent')">Indisponible</button>
@@ -97,12 +128,18 @@ function renderByDate(date) {
     });
 }
 
-// EXPORT POUR APP
+// =======================
+// EXPORT
+// =======================
 window.renderMissionsByDate = renderByDate;
+
+// =======================
+// DASHBOARD
+// =======================
 window.renderDashboard = function () {
 
     const user = JSON.parse(localStorage.getItem("BLEU4_USER"));
-    if (user.role !== "commandement") return;
+    if (!user || user.role !== "commandement") return;
 
     let total = 0;
     let present = 0;
