@@ -1,4 +1,3 @@
-
 // =======================
 // USER SESSION
 // =======================
@@ -26,12 +25,13 @@ if (logoutBtn) {
 }
 
 // =======================
-// GLOBAL STATE
+// CALENDAR STATE
 // =======================
+let currentDate = new Date();
 window.selectedDate = null;
 
 // =======================
-// CALENDAR (multi-days support)
+// RENDER CALENDAR MONTH
 // =======================
 window.renderCalendar = function (missions = {}) {
 
@@ -40,82 +40,136 @@ window.renderCalendar = function (missions = {}) {
 
     calendar.innerHTML = "";
 
-    const now = new Date();
-    const year = now.getFullYear();
-    const month = now.getMonth();
+    const year = currentDate.getFullYear();
+    const month = currentDate.getMonth();
 
+    const monthNames = [
+        "Janvier","Février","Mars","Avril","Mai","Juin",
+        "Juillet","Août","Septembre","Octobre","Novembre","Décembre"
+    ];
+
+    // HEADER MONTH
+    const header = document.createElement("div");
+    header.style.textAlign = "center";
+    header.style.fontSize = "20px";
+    header.style.marginBottom = "10px";
+    header.innerHTML = `
+        <button id="prevMonth">◀</button>
+        <b style="margin:0 15px">${monthNames[month]} ${year}</b>
+        <button id="nextMonth">▶</button>
+    `;
+
+    calendar.appendChild(header);
+
+    document.getElementById("prevMonth").onclick = () => {
+        currentDate.setMonth(currentDate.getMonth() - 1);
+        renderCalendar(missions);
+    };
+
+    document.getElementById("nextMonth").onclick = () => {
+        currentDate.setMonth(currentDate.getMonth() + 1);
+        renderCalendar(missions);
+    };
+
+    // DAYS HEADER
+    const daysRow = document.createElement("div");
+    daysRow.style.display = "grid";
+    daysRow.style.gridTemplateColumns = "repeat(7, 1fr)";
+    daysRow.style.textAlign = "center";
+    daysRow.style.fontWeight = "bold";
+    daysRow.innerHTML = "<div>L</div><div>M</div><div>M</div><div>J</div><div>V</div><div>S</div><div>D>";
+    calendar.appendChild(daysRow);
+
+    // GRID
+    const grid = document.createElement("div");
+    grid.style.display = "grid";
+    grid.style.gridTemplateColumns = "repeat(7, 1fr)";
+    grid.style.gap = "5px";
+
+    const firstDay = new Date(year, month, 1).getDay();
     const daysInMonth = new Date(year, month + 1, 0).getDate();
 
-    for (let i = 1; i <= daysInMonth; i++) {
+    let startOffset = firstDay === 0 ? 6 : firstDay - 1;
 
-        const date = `${year}-${String(month + 1).padStart(2, "0")}-${String(i).padStart(2, "0")}`;
+    for (let i = 0; i < startOffset; i++) {
+        grid.appendChild(document.createElement("div"));
+    }
 
-        const day = document.createElement("div");
-        day.className = "day";
-        day.innerText = i;
+    for (let day = 1; day <= daysInMonth; day++) {
 
-        // check mission overlap (start/end)
-        const hasMission = Object.values(missions).some(m => {
-            if (!m.startDate || !m.endDate) return false;
-            return date >= m.startDate && date <= m.endDate;
-        });
+        const dateStr = `${year}-${String(month+1).padStart(2,"0")}-${String(day).padStart(2,"0")}`;
+
+        const cell = document.createElement("div");
+        cell.style.padding = "10px";
+        cell.style.border = "1px solid #ddd";
+        cell.style.cursor = "pointer";
+        cell.style.textAlign = "center";
+
+        const hasMission = Object.values(missions).some(m =>
+            dateStr >= m.startDate && dateStr <= m.endDate
+        );
 
         if (hasMission) {
-            day.style.background = "#f5d76e";
-            day.style.color = "#000";
-            day.style.fontWeight = "bold";
+            cell.style.background = "#f5d76e";
         }
 
-        day.addEventListener("click", () => {
-            window.selectedDate = date;
-            if (window.renderMissionsByDate) {
-                window.renderMissionsByDate(date);
-            }
-        });
+        const today = new Date().toISOString().split("T")[0];
+        if (dateStr === today) {
+            cell.style.border = "2px solid black";
+        }
 
-        calendar.appendChild(day);
+        cell.innerText = day;
+
+        cell.onclick = () => {
+            window.selectedDate = dateStr;
+            renderDayMissions(dateStr, missions);
+        };
+
+        grid.appendChild(cell);
     }
+
+    calendar.appendChild(grid);
 };
 
 // =======================
-// CREATE MISSION UI
+// DAY MISSIONS (DÉROULÉ)
 // =======================
-const box = document.getElementById("createMissionBox");
+function renderDayMissions(date, missions) {
 
-if (box && userData.role !== "commandement") {
-    box.style.display = "none";
-}
+    const missionsDiv = document.getElementById("missions");
+    missionsDiv.innerHTML = "";
 
-const createBtn = document.getElementById("createBtn");
+    Object.values(missions).forEach(m => {
 
-if (createBtn) {
-    createBtn.addEventListener("click", () => {
+        if (date < m.startDate || date > m.endDate) return;
 
-        const mission = {
-            title: document.getElementById("mTitle")?.value || "",
-            description: document.getElementById("mDesc")?.value || "",
-            startDate: document.getElementById("mStartDate")?.value || "",
-            endDate: document.getElementById("mEndDate")?.value || "",
-            location: document.getElementById("mLocation")?.value || "",
-            concerned: document.getElementById("mConcerned")?.value || ""
-        };
+        const div = document.createElement("div");
+        div.className = "mission";
 
-        if (!mission.title || !mission.startDate || !mission.endDate) {
-            alert("Titre + date début + date fin obligatoires");
-            return;
-        }
+        div.innerHTML = `
+            <h3>${m.title}</h3>
+            <p>${m.description || ""}</p>
+            <p>📍 ${m.location || ""}</p>
 
-        if (window.createMission) {
-            window.createMission(mission);
-        }
+            <details>
+                <summary>Voir détails</summary>
+                <p>Début: ${m.startDate}</p>
+                <p>Fin: ${m.endDate}</p>
+                <p>Concernés: ${m.concerned || ""}</p>
+            </details>
 
-        alert(`Mission créée du ${mission.startDate} au ${mission.endDate}`);
+            <button onclick="participate('${m.id}','present')"
+                style="background:green;color:white;">
+                Je participe
+            </button>
 
-        // reset
-        ["mTitle","mDesc","mStartDate","mEndDate","mLocation","mConcerned"].forEach(id => {
-            const el = document.getElementById(id);
-            if (el) el.value = "";
-        });
+            <button onclick="participate('${m.id}','absent')"
+                style="background:red;color:white;">
+                Indisponible
+            </button>
+        `;
+
+        missionsDiv.appendChild(div);
     });
 }
 
