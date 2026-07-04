@@ -1,18 +1,15 @@
+const userData = JSON.parse(localStorage.getItem("BLEU4_USER"));
 
-const user = JSON.parse(localStorage.getItem("BLEU4_USER"));
-
-if (!user) {
+if (!userData) {
     window.location.href = "index.html";
 }
 
-// =======================
-// UI HEADER
-// =======================
+// HEADER
 const userInfo = document.getElementById("userInfo");
 const logoutBtn = document.getElementById("logoutBtn");
 
 if (userInfo) {
-    userInfo.innerText = `${user.login} — ${user.role.toUpperCase()}`;
+    userInfo.innerText = `${userData.login} — ${userData.role.toUpperCase()}`;
 }
 
 if (logoutBtn) {
@@ -22,14 +19,9 @@ if (logoutBtn) {
     });
 }
 
-// =======================
-// VARIABLES GLOBALES
-// =======================
 window.selectedDate = null;
 
-// =======================
-// CALENDRIER
-// =======================
+// CALENDAR
 window.renderCalendar = function (missions = {}) {
 
     const calendar = document.getElementById("calendar");
@@ -55,13 +47,10 @@ window.renderCalendar = function (missions = {}) {
 
         if (hasMission) {
             day.style.background = "#f5d76e";
-            day.style.color = "#000";
-            day.style.fontWeight = "bold";
         }
 
         day.onclick = () => {
             window.selectedDate = date;
-
             if (window.renderMissionsByDate) {
                 window.renderMissionsByDate(date);
             }
@@ -71,15 +60,7 @@ window.renderCalendar = function (missions = {}) {
     }
 };
 
-// =======================
-// CREATION MISSION (UI)
-// =======================
-const box = document.getElementById("createMissionBox");
-
-if (box && user.role !== "commandement") {
-    box.style.display = "none";
-}
-
+// CREATE BUTTON
 const createBtn = document.getElementById("createBtn");
 
 if (createBtn) {
@@ -87,8 +68,8 @@ if (createBtn) {
 
         const mission = {
             title: document.getElementById("mTitle")?.value,
-            description: document.getElementById("mDesc")?.value,
             date: document.getElementById("mDate")?.value,
+            description: document.getElementById("mDesc")?.value,
             time: document.getElementById("mTime")?.value,
             location: document.getElementById("mLocation")?.value,
             concerned: document.getElementById("mConcerned")?.value
@@ -104,20 +85,5 @@ if (createBtn) {
         }
 
         alert("Mission créée");
-
-        // reset
-        ["mTitle","mDesc","mDate","mTime","mLocation","mConcerned"].forEach(id => {
-            const el = document.getElementById(id);
-            if (el) el.value = "";
-        });
     });
-}
-
-// =======================
-// INIT
-// =======================
-window.onload = function () {
-    if (window.renderCalendar) {
-        window.renderCalendar({});
-    }
 };
