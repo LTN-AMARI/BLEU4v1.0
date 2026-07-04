@@ -1,21 +1,21 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import {
-    getDatabase,
-    ref,
-    set,
-    onValue,
-    update,
-    remove
+  getDatabase,
+  ref,
+  set,
+  onValue,
+  update,
+  remove
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 
 const firebaseConfig = {
-  apiKey: "AIzaSyCOTja98aA-0umXrqm2c2k4frUFn6why1o",
-  authDomain: "bleu-4.firebaseapp.com",
-  databaseURL: "https://bleu-4-default-rtdb.firebaseio.com",
-  projectId: "bleu-4",
-  storageBucket: "bleu-4.firebasestorage.app",
-  messagingSenderId: "788139266954",
-  appId: "1:788139266954:web:c1896f25eb57687846ae73"
+  apiKey: "XXX",
+  authDomain: "XXX.firebaseapp.com",
+  databaseURL: "https://XXX-default-rtdb.firebaseio.com",
+  projectId: "XXX",
+  storageBucket: "XXX.appspot.com",
+  messagingSenderId: "XXX",
+  appId: "XXX"
 };
 
 const app = initializeApp(firebaseConfig);
