@@ -1,45 +1,40 @@
 <!DOCTYPE html>
 <html lang="fr">
-
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>BLEU4</title>
-
-    <link rel="stylesheet" href="css/style.css">
+<meta charset="UTF-8">
+<title>BLEU4</title>
+<link rel="stylesheet" href="css/style.css">
 </head>
 
 <body>
 
 <div class="topbar">
-    <div id="userInfo">Chargement...</div>
-    <button id="logoutBtn">Déconnexion</button>
+  <div id="userInfo"></div>
+  <button id="logoutBtn">Logout</button>
 </div>
 
 <div class="container">
 
-    <!-- CREATION -->
-    <div id="createMissionBox" class="card">
+<!-- CREATE -->
+<div id="createBox">
+  <input id="mTitle" placeholder="Titre">
+  <input id="mDesc" placeholder="Description">
+  <input id="mStart" type="date">
+  <input id="mEnd" type="date">
+  <button id="createBtn">Créer</button>
+</div>
 
-        <h2>Créer mission</h2>
+<!-- YEAR -->
+<h2 id="yearTitle"></h2>
 
-        <input id="mTitle" placeholder="Titre">
-        <input id="mDesc" placeholder="Description">
-        <input id="mStartDate" type="date">
-        <input id="mEndDate" type="date">
-        <input id="mLocation" placeholder="Lieu">
+<div style="display:flex;gap:10px;">
+<button id="prevYear">⬅</button>
+<button id="nextYear">➡</button>
+</div>
 
-        <button id="createBtn">Créer mission</button>
-    </div>
+<div id="calendar"></div>
 
-    <!-- CALENDRIER -->
-    <div class="card">
-        <h2 id="monthTitle"></h2>
-        <div id="calendar"></div>
-    </div>
-
-    <!-- MISSIONS -->
-    <div id="missions"></div>
+<div id="missions"></div>
 
 </div>
 
