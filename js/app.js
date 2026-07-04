@@ -4,13 +4,31 @@ const user = JSON.parse(localStorage.getItem("BLEU4_USER"));
 if (!user) window.location.href = "index.html";
 
 // HEADER
-document.getElementById("userInfo").innerText =
-    `${user.login} — ${user.role}`;
 
-document.getElementById("logoutBtn").onclick = () => {
-    localStorage.removeItem("BLEU4_USER");
-    location.reload();
-};
+const user = JSON.parse(localStorage.getItem("BLEU4_USER"));
+
+if (!user) {
+    window.location.href = "index.html";
+}
+
+// attendre DOM
+window.addEventListener("DOMContentLoaded", () => {
+
+    const userInfo = document.getElementById("userInfo");
+    const logoutBtn = document.getElementById("logoutBtn");
+
+    if (userInfo) {
+        userInfo.innerText = `${user.login} — ${user.role}`;
+    }
+
+    if (logoutBtn) {
+        logoutBtn.onclick = () => {
+            localStorage.removeItem("BLEU4_USER");
+            window.location.href = "index.html";
+        };
+    }
+
+});
 
 // SHOW CREATE ONLY FOR COMMAND
 if (user.role !== "commandement") {
