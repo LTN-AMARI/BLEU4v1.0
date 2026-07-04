@@ -1,34 +1,35 @@
-
 import { db, ref, set, onValue, update, remove } from "./firebase.js";
 
 const user = JSON.parse(localStorage.getItem("BLEU4_USER")) || {};
 
+let missions = {};
 const missionsDiv = document.getElementById("missions");
 
-let missions = {};
-
 // =======================
-// FIREBASE LISTENER
+// FIREBASE LISTENER (SAFE)
 // =======================
 onValue(ref(db, "missions"), (snapshot) => {
 
     missions = snapshot.val() || {};
 
+    // calendrier
     if (window.renderCalendar) {
         window.renderCalendar(missions);
     }
 
+    // dashboard si existe
     if (window.renderDashboard) {
         window.renderDashboard();
     }
 
+    // refresh jour
     if (window.selectedDate && window.renderMissionsByDate) {
         window.renderMissionsByDate(window.selectedDate);
     }
 });
 
 // =======================
-// CREATE MISSION
+// CREATE MISSION (SAFE)
 // =======================
 window.createMission = function (m) {
 
@@ -36,12 +37,12 @@ window.createMission = function (m) {
 
     set(ref(db, "missions/" + id), {
         id,
-        title: m.title,
-        description: m.description,
-        startDate: m.startDate,
-        endDate: m.endDate,
-        location: m.location,
-        concerned: m.concerned,
+        title: m.title || "",
+        description: m.description || "",
+        startDate: m.startDate || "",
+        endDate: m.endDate || "",
+        location: m.location || "",
+        concerned: m.concerned || "",
         participants: {},
         absent: {},
         createdAt: Date.now()
@@ -71,14 +72,14 @@ window.participate = function (id, status) {
 };
 
 // =======================
-// DELETE
+// DELETE (COMMANDMENT)
 // =======================
 window.deleteMission = function (id) {
     remove(ref(db, "missions/" + id));
 };
 
 // =======================
-// RENDER BY DATE
+// RENDER DAY (SAFE)
 // =======================
 window.renderMissionsByDate = function (date) {
 
@@ -98,19 +99,21 @@ window.renderMissionsByDate = function (date) {
 
         div.innerHTML = `
             <h3>${m.title}</h3>
-            <p>${m.description || ""}</p>
-            <p>📍 ${m.location || ""}</p>
+            <p>${m.description}</p>
+            <p>📍 ${m.location}</p>
 
             <button onclick="participate('${m.id}','present')"
-            style="background:green;color:white;">Je participe</button>
+            style="background:green;color:white;">
+            Je participe</button>
 
             <button onclick="participate('${m.id}','absent')"
-            style="background:red;color:white;">Indisponible</button>
+            style="background:red;color:white;">
+            Indisponible</button>
 
             <hr>
 
-            <p>🟢 Présents : ${participants.join(", ") || "Aucun"}</p>
-            <p>🔴 Absents : ${absents.join(", ") || "Aucun"}</p>
+            <p>🟢 ${participants.join(", ") || "Aucun"}</p>
+            <p>🔴 ${absents.join(", ") || "Aucun"}</p>
 
             ${user.role === "commandement"
                 ? `<button onclick="deleteMission('${m.id}')">Supprimer</button>`
