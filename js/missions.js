@@ -37,10 +37,7 @@ window.createMission = function (m) {
 window.participate = function (id, status) {
 
     const m = missions[id];
-    if (!m) {
-        console.log("❌ mission introuvable", id);
-        return;
-    }
+    if (!m) return;
 
     const name = user.login || "user";
 
@@ -48,17 +45,18 @@ window.participate = function (id, status) {
         m.participants = {};
     }
 
-    m.participants[name] = status;
+    // on stocke directement le statut
+    m.participants[name] = status; 
+    // status = "present" OU "absent"
 
     update(ref(db, "missions/" + id), {
         participants: m.participants
     })
     .then(() => {
-        console.log("✔ participation enregistrée :", status);
+        console.log("✔ statut enregistré :", status);
+        render(); // refresh UI
     })
-    .catch(err => {
-        console.error("❌ erreur update Firebase:", err);
-    });
+    .catch(err => console.error(err));
 };
 
 // DELETE
