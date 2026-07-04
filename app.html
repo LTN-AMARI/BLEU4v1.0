@@ -47,6 +47,19 @@
 </div>
 
 <!-- MISSIONS -->
+    <div>
+  🟢 Présents :
+  ${Object.entries(participants)
+    .filter(([_,v]) => v === "present")
+    .map(([name]) => `<div>${name}</div>`).join("") || "Aucun"}
+</div>
+
+<div>
+  🔴 Indisponibles :
+  ${Object.entries(participants)
+    .filter(([_,v]) => v === "absent")
+    .map(([name]) => `<div>${name}</div>`).join("") || "Aucun"}
+</div>
 <div class="card">
 <h2>Missions</h2>
 <div id="missions"></div>
