@@ -115,9 +115,16 @@ function renderByDate(date) {
             <p>📅 Du ${m.startDate} au ${m.endDate}</p>
             <p>📍 ${m.location || ""}</p>
 
-            <button onclick="selectParticipation('${m.id}','present')">Je participe</button>
-            <button onclick="selectParticipation('${m.id}','absent')">Indisponible</button>
-            <button onclick="validateParticipation()">Valider</button>
+            
+<button onclick="participate('${m.id}','present')"
+style="background:green;color:white;">
+Je participe
+</button>
+
+<button onclick="participate('${m.id}','absent')"
+style="background:red;color:white;">
+Indisponible
+</button>
 
             <hr>
 
