@@ -99,3 +99,30 @@ function renderMissions() {
 window.deleteMission = function (id) {
     update(ref(db, "missions/" + id), null);
 };
+window.renderMissionsByDate = function(date) {
+
+    missionsDiv.innerHTML = "";
+
+    Object.values(missions).forEach(m => {
+
+        if (m.startDate !== date) return;
+
+        const div = document.createElement("div");
+        div.className = "mission";
+
+        const isCommand = user.role === "commandement";
+
+        div.innerHTML = `
+            <h3>${m.title}</h3>
+            <p>${m.description || ""}</p>
+            <p>${m.location || ""}</p>
+
+            <button onclick="participate('${m.id}', 'present')">Je participe</button>
+            <button onclick="participate('${m.id}', 'absent')">Indisponible</button>
+
+            ${isCommand ? `<button onclick="deleteMission('${m.id}')">Supprimer</button>` : ""}
+        `;
+
+        missionsDiv.appendChild(div);
+    });
+};
