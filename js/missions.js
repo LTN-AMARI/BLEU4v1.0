@@ -15,17 +15,22 @@ onValue(ref(db, "missions"), (snap) => {
 // CREATE
 window.createMission = function (m) {
 
-  const id = Date.now().toString();
+    const id = Date.now().toString();
 
-  set(ref(db, "missions/" + id), {
-    id,
-    title: m.title || "",
-    description: m.description || "",
-    start: m.start || "",
-    end: m.end || "",
-    location: m.location || "",
-    participants: {}
-  });
+    set(ref(db, "missions/" + id), {
+        id,
+        title: m.title || "",
+        description: m.description || "",
+        start: m.start || "",
+        end: m.end || "",
+        location: m.location || "",
+        concerned: m.concerned || "",
+        participants: {}
+    }).then(() => {
+        console.log("✔ Mission créée");
+    }).catch(err => {
+        console.error("❌ Firebase error:", err);
+    });
 };
 
 // PARTICIPATION
