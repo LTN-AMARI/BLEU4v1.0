@@ -119,3 +119,13 @@ button:hover {
 #createMissionBox input {
     margin-top: 5px;
 }
+#dashboard {
+    margin: 10px;
+    padding: 10px;
+    background: #151515;
+    border-radius: 8px;
+}
+
+#dashboard p {
+    margin: 5px 0;
+}
