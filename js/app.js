@@ -44,13 +44,13 @@ window.addEventListener("DOMContentLoaded", () => {
         btn.addEventListener("click", () => {
 
             const mission = {
-                title: document.getElementById("mTitle")?.value.trim(),
-                description: document.getElementById("mDesc")?.value.trim(),
-                startDate: document.getElementById("mStartDate")?.value,
-                endDate: document.getElementById("mEndDate")?.value,
-                location: document.getElementById("mLocation")?.value,
-                concerned: document.getElementById("mConcerned")?.value
-            };
+    title: document.getElementById("mTitle")?.value?.trim() || "",
+    description: document.getElementById("mDesc")?.value?.trim() || "",
+    start: document.getElementById("mStartDate")?.value || "",
+    end: document.getElementById("mEndDate")?.value || "",
+    location: document.getElementById("mLocation")?.value?.trim() || "",
+    concerned: document.getElementById("mConcerned")?.value?.trim() || ""
+};
 
             console.log("📦 CREATE CLICK", mission);
 
