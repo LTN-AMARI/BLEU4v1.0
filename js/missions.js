@@ -148,8 +148,10 @@ function renderByDate(date) {
             <p>📅 Du ${m.startDate} au ${m.endDate}</p>
             <p>📍 ${m.location || ""}</p>
 
-            <button onclick="participate('${m.id}', 'present')">Je participe</button>
-            <button onclick="participate('${m.id}', 'absent')">Indisponible</button>
+            <button onclick="selectParticipation('${m.id}', 'present')">Je participe</button>
+            <button onclick="selectParticipation('${m.id}', 'absent')">Indisponible</button>
+
+            <button onclick="validateParticipation()">Valider</button>
 
             ${isCommand ? `<button onclick="deleteMission('${m.id}')">Supprimer</button>` : ""}
         `;
