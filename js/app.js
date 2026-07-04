@@ -1,81 +1,79 @@
-
 const user = JSON.parse(localStorage.getItem("BLEU4_USER"));
 
-if (!user) {
-    window.location.href = "index.html";
-}
+if (!user) window.location.href = "index.html";
 
-// =======================
-// HEADER
-// =======================
-window.addEventListener("DOMContentLoaded", () => {
+document.getElementById("userInfo").innerText =
+  `${user.login} - ${user.role}`;
 
-    const userInfo = document.getElementById("userInfo");
-    const logoutBtn = document.getElementById("logoutBtn");
-
-    if (userInfo) {
-        userInfo.innerText = `${user.login} — ${user.role}`;
-    }
-
-    if (logoutBtn) {
-        logoutBtn.onclick = () => {
-            localStorage.removeItem("BLEU4_USER");
-            window.location.href = "index.html";
-        };
-    }
-
-    // =======================
-    // ROLE CONTROL (IMPORTANT)
-    // =======================
-    const box = document.getElementById("createMissionBox");
-
-    if (user.role !== "commandement") {
-        if (box) {
-            box.style.display = "none";
-        }
-    }
-
-    // =======================
-    // CREATE MISSION BUTTON
-    // =======================
-    const btn = document.getElementById("createBtn");
-
-    if (btn) {
-        btn.addEventListener("click", () => {
-
-            const mission = {
-    title: document.getElementById("mTitle")?.value?.trim() || "",
-    description: document.getElementById("mDesc")?.value?.trim() || "",
-    start: document.getElementById("mStartDate")?.value || "",
-    end: document.getElementById("mEndDate")?.value || "",
-    location: document.getElementById("mLocation")?.value?.trim() || "",
-    concerned: document.getElementById("mConcerned")?.value?.trim() || ""
+document.getElementById("logoutBtn").onclick = () => {
+  localStorage.removeItem("BLEU4_USER");
+  location.reload();
 };
 
-            console.log("📦 CREATE CLICK", mission);
+// HIDE CREATE FOR MEMBERS
+if (user.role !== "commandement") {
+  document.getElementById("createMissionBox").style.display = "none";
+}
 
-            if (!mission.title || !mission.startDate || !mission.endDate) {
-                alert("Titre + dates obligatoires");
-                return;
-            }
+// CREATE BUTTON
+document.getElementById("createBtn").onclick = () => {
 
-            if (!window.createMission) {
-                console.error("❌ createMission introuvable");
-                alert("Erreur système (createMission)");
-                return;
-            }
+  const m = {
+    title: document.getElementById("mTitle").value.trim(),
+    description: document.getElementById("mDesc").value.trim(),
+    start: document.getElementById("mStart").value,
+    end: document.getElementById("mEnd").value,
+    location: document.getElementById("mLocation").value.trim()
+  };
 
-            window.createMission(mission);
+  if (!m.title || !m.start || !m.end) {
+    alert("Remplir tout");
+    return;
+  }
 
-            alert("✔ Mission créée");
+  window.createMission(m);
+};
 
-            // reset inputs
-            ["mTitle","mDesc","mStartDate","mEndDate","mLocation","mConcerned"]
-            .forEach(id => {
-                const el = document.getElementById(id);
-                if (el) el.value = "";
-            });
-        });
-    }
+// CALENDAR SIMPLE
+let month = new Date().getMonth();
+let year = new Date().getFullYear();
 
-});
+document.getElementById("prevMonth").onclick = () => {
+  month--;
+  if (month < 0) { month = 11; year--; }
+  renderCalendar(window.missions || {});
+};
+
+document.getElementById("nextMonth").onclick = () => {
+  month++;
+  if (month > 11) { month = 0; year++; }
+  renderCalendar(window.missions || {});
+};
+
+window.renderCalendar = function (missions = {}) {
+
+  const cal = document.getElementById("calendar");
+  const title = document.getElementById("monthTitle");
+
+  title.innerText = `${month + 1}/${year}`;
+
+  cal.innerHTML = "";
+
+  const days = new Date(year, month + 1, 0).getDate();
+
+  for (let d = 1; d <= days; d++) {
+
+    const date = `${year}-${String(month + 1).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
+
+    const div = document.createElement("div");
+    div.innerText = d;
+
+    const has = Object.values(missions).some(m =>
+      date >= m.start && date <= m.end
+    );
+
+    if (has) div.style.background = "yellow";
+
+    cal.appendChild(div);
+  }
+};
