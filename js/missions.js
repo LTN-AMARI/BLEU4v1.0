@@ -141,20 +141,33 @@ function renderByDate(date) {
 
         const isCommand = user.role === "commandement";
 
-        div.innerHTML = `
-            <h3>${m.title}</h3>
-            <p>${m.description || ""}</p>
+        
+div.innerHTML = `
+    <h3>${m.title}</h3>
+    <p>${m.description || ""}</p>
 
-            <p>📅 Du ${m.startDate} au ${m.endDate}</p>
-            <p>📍 ${m.location || ""}</p>
+    <p>📅 Du ${m.startDate} au ${m.endDate}</p>
+    <p>📍 ${m.location || ""}</p>
 
-            <button onclick="selectParticipation('${m.id}', 'present')">Je participe</button>
-            <button onclick="selectParticipation('${m.id}', 'absent')">Indisponible</button>
+    <button onclick="selectParticipation('${m.id}', 'present')">Je participe</button>
+    <button onclick="selectParticipation('${m.id}', 'absent')">Indisponible</button>
 
-            <button onclick="validateParticipation()">Valider</button>
+    <button onclick="validateParticipation()">Valider</button>
 
-            ${isCommand ? `<button onclick="deleteMission('${m.id}')">Supprimer</button>` : ""}
-        `;
+    <hr>
+
+    <p><strong>👥 Présents :</strong></p>
+    <ul>
+        ${Object.keys(m.participants || {}).map(u => `<li>🟢 ${u}</li>`).join("")}
+    </ul>
+
+    <p><strong>❌ Absents :</strong></p>
+    <ul>
+        ${Object.keys(m.absent || {}).map(u => `<li>🔴 ${u}</li>`).join("")}
+    </ul>
+
+    ${isCommand ? `<button onclick="deleteMission('${m.id}')">Supprimer</button>` : ""}
+`;
 
         missionsDiv.appendChild(div);
     });
