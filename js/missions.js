@@ -36,16 +36,29 @@ window.createMission = function (m) {
 // PARTICIPATION
 window.participate = function (id, status) {
 
-  const m = missions[id];
-  if (!m) return;
+    const m = missions[id];
+    if (!m) {
+        console.log("❌ mission introuvable", id);
+        return;
+    }
 
-  const name = user.login || "user";
+    const name = user.login || "user";
 
-  if (!m.participants) m.participants = {};
+    if (!m.participants) {
+        m.participants = {};
+    }
 
-  m.participants[name] = status;
+    m.participants[name] = status;
 
-  update(ref(db, "missions/" + id), m);
+    update(ref(db, "missions/" + id), {
+        participants: m.participants
+    })
+    .then(() => {
+        console.log("✔ participation enregistrée :", status);
+    })
+    .catch(err => {
+        console.error("❌ erreur update Firebase:", err);
+    });
 };
 
 // DELETE
