@@ -11,49 +11,59 @@
 
 <body>
 
+<!-- TOP BAR -->
 <div class="topbar">
     <div id="userInfo">Chargement...</div>
     <button id="logoutBtn">Déconnexion</button>
 </div>
 
+<!-- CONTAINER PRINCIPAL -->
 <div class="container">
+
+    <!-- CREATION MISSION -->
     <div id="createMissionBox" class="card">
 
-    <h2>CRÉER UNE MISSION</h2>
+        <h2>CRÉER UNE MISSION</h2>
 
-    <input id="mTitle" placeholder="Titre">
-    <input id="mDesc" placeholder="Description">
-    <input id="mDate" type="date">
-    <input id="mTime" type="time">
-    <input id="mLocation" placeholder="Lieu">
+        <input id="mTitle" placeholder="Titre">
+        <input id="mDesc" placeholder="Description">
+        <input id="mDate" type="date">
+        <input id="mTime" type="time">
+        <input id="mLocation" placeholder="Lieu">
 
-    <input id="mConcerned" placeholder="Concernés (tous ou SDT,CPL...)">
+        <input id="mConcerned" placeholder="Concernés (tous ou SDT,CPL...)">
 
-    <button id="createBtn">Créer mission</button>
-        <div id="dashboard" class="card">
-    <h2>TABLEAU DE BORD</h2>
+        <button id="createBtn">Créer mission</button>
 
-    <p id="statsTotal"></p>
-    <p id="statsPresent"></p>
-    <p id="statsAbsent"></p>
-    <p id="statsPending"></p>
-</div>
+    </div>
 
-</div>
+    <!-- DASHBOARD -->
+    <div id="dashboard" class="card">
 
+        <h2>TABLEAU DE BORD</h2>
+
+        <p id="statsTotal"></p>
+        <p id="statsPresent"></p>
+        <p id="statsAbsent"></p>
+        <p id="statsPending"></p>
+
+    </div>
+
+    <!-- CALENDRIER -->
     <h2>CALENDRIER</h2>
-<div id="calendar"></div>
+    <div id="calendar"></div>
 
-<h2 id="selectedDateTitle">MISSIONS</h2>
-<div id="missions"></div>
+    <!-- MISSIONS -->
+    <h2 id="selectedDateTitle">MISSIONS</h2>
+    <div id="missions"></div>
 
 </div>
 
+<!-- SCRIPTS (ORDRE IMPORTANT) -->
+<script type="module" src="js/firebase.js"></script>
+<script type="module" src="js/missions.js"></script>
 <script type="module" src="js/app.js"></script>
-<script type="module" src="js/firebase.js"></script>
-<script type="module" src="js/missions.js"></script>
-<script type="module" src="js/firebase.js"></script>
-<script type="module" src="js/missions.js"></script>
+
 </body>
 
 </html>
