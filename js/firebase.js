@@ -9,7 +9,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 
 const firebaseConfig = {
-  apiKey: "AIzaSyCOTja98aA-0umXrqm2c2k4frUFn6why1o",
+  apiKey: "COTJA98aA-0umXrqm2c2k4frUFn6why1o",
   authDomain: "bleu-4.firebaseapp.com",
   databaseURL: "https://bleu-4-default-rtdb.firebaseio.com",
   projectId: "bleu-4",
