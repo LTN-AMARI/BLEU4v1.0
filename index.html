@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BLEU4</title>
+
+    <link rel="stylesheet" href="css/style.css">
+</head>
+
+<body>
+
+<div class="login-container">
+
+    <div class="logo">
+        <h1>BLEU4</h1>
+        <p>Gestion des activités</p>
+    </div>
+
+    <div class="card">
+
+        <label>GRADE NOM</label>
+        <input
+            type="text"
+            id="login"
+            placeholder="Ex : SDT PINGOUIN"
+            autocomplete="off"
+        >
+
+        <label>RÔLE</label>
+
+        <select id="role">
+            <option value="membre">MEMBRE</option>
+            <option value="commandement">COMMANDEMENT</option>
+        </select>
+
+        <div id="passwordBox" style="display:none;">
+
+            <label>MOT DE PASSE</label>
+
+            <input
+                type="password"
+                id="password"
+                placeholder="********"
+            >
+
+        </div>
+
+        <button id="btnLogin">
+            ENTRER
+        </button>
+
+    </div>
+
+</div>
+
+<script type="module" src="js/auth.js"></script>
+
+</body>
+
+</html>
