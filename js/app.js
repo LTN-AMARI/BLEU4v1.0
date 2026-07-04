@@ -4,6 +4,9 @@ if (!user) {
     window.location.href = "index.html";
 }
 
+// =======================
+// UI HEADER
+// =======================
 const userInfo = document.getElementById("userInfo");
 const logoutBtn = document.getElementById("logoutBtn");
 
@@ -14,36 +17,60 @@ logoutBtn.addEventListener("click", () => {
     window.location.href = "index.html";
 });
 
-// IMPORT missions (global window via firebase module)
-let selectedDate = null;
+// =======================
+// DATE SELECTION
+// =======================
+window.selectedDate = null;
 
-window.selectDate = function(date) {
-    selectedDate = date;
-    document.getElementById("selectedDateTitle").innerText =
-        "MISSIONS DU " + date;
-
-    if (window.renderMissionsByDate) {
-        window.renderMissionsByDate(date);
-    }
-};
-
-// calendrier simple mais cliquable
-window.renderCalendar = function() {
+// =======================
+// CALENDAR RENDER
+// =======================
+window.renderCalendar = function (missions = {}) {
 
     const calendar = document.getElementById("calendar");
     calendar.innerHTML = "";
 
-    for (let i = 1; i <= 30; i++) {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = now.getMonth();
 
-        const date = `2026-07-${String(i).padStart(2, "0")}`;
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+    for (let i = 1; i <= daysInMonth; i++) {
+
+        const date = `${year}-${String(month + 1).padStart(2, "0")}-${String(i).padStart(2, "0")}`;
 
         const day = document.createElement("div");
         day.className = "day";
         day.innerText = i;
 
-        day.onclick = () => window.selectDate(date);
+        // highlight si mission
+        const hasMission = Object.values(missions).some(m => m.date === date);
+
+        if (hasMission) {
+            day.style.background = "#f5d76e";
+            day.style.color = "#000";
+            day.style.fontWeight = "bold";
+        }
+
+        day.onclick = () => {
+            window.selectedDate = date;
+
+            if (window.renderMissionsByDate) {
+                window.renderMissionsByDate(date);
+            }
+        };
 
         calendar.appendChild(day);
     }
 };
-window.renderCalendar();
+
+// =======================
+// INITIAL LOAD
+// =======================
+window.onload = function () {
+
+    if (window.renderCalendar) {
+        window.renderCalendar({});
+    }
+};
