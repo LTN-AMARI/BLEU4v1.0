@@ -141,5 +141,8 @@ function renderByDate(date) {
         missionsDiv.appendChild(div);
     });
 }
+onValue(ref(db, "missions"), (snapshot) => {
+    console.log("🔥 FIREBASE RAW DATA :", snapshot.val());
+});
 
 window.renderMissionsByDate = renderByDate;
