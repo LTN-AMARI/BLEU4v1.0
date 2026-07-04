@@ -17,12 +17,13 @@ window.createMission = function (m) {
   const id = Date.now().toString();
 
   set(ref(db, "missions/" + id), {
-    id,
-    title: m.title,
-    description: m.description,
-    start: m.start,
-    end: m.end,
-    participants: {}
+  title,
+  description,
+  start,
+  end,
+  location,
+  concerned
+}
   });
 };
 
