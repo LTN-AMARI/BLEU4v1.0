@@ -66,6 +66,7 @@ window.deleteMission = function (id) {
 
 // RENDER
 function render() {
+  const participants = m.participants || {};
 
   missionsDiv.innerHTML = "";
 
