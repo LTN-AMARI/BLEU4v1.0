@@ -74,3 +74,44 @@ window.onload = function () {
         window.renderCalendar({});
     }
 };
+const user = JSON.parse(localStorage.getItem("BLEU4_USER"));
+
+// cacher si pas commandement
+const box = document.getElementById("createMissionBox");
+
+if (user.role !== "commandement") {
+    box.style.display = "none";
+}
+
+// bouton création
+document.getElementById("createBtn").addEventListener("click", () => {
+
+    const mission = {
+        title: document.getElementById("mTitle").value,
+        description: document.getElementById("mDesc").value,
+        date: document.getElementById("mDate").value,
+        time: document.getElementById("mTime").value,
+        location: document.getElementById("mLocation").value,
+        concerned: document.getElementById("mConcerned").value
+    };
+
+    if (!mission.title || !mission.date) {
+        alert("Titre + date obligatoires");
+        return;
+    }
+
+    // appel firebase (via missions.js)
+    if (window.createMission) {
+        window.createMission(mission);
+    }
+
+    alert("Mission créée");
+
+    // reset
+    document.getElementById("mTitle").value = "";
+    document.getElementById("mDesc").value = "";
+    document.getElementById("mDate").value = "";
+    document.getElementById("mTime").value = "";
+    document.getElementById("mLocation").value = "";
+    document.getElementById("mConcerned").value = "";
+});
