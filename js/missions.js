@@ -1,9 +1,5 @@
-
 import { db, ref, set, onValue, update, remove } from "./firebase.js";
 
-// =======================
-// USER
-// =======================
 const user = JSON.parse(localStorage.getItem("BLEU4_USER"));
 
 const missionsDiv = document.getElementById("missions");
@@ -11,7 +7,7 @@ const missionsDiv = document.getElementById("missions");
 let missions = {};
 
 // =======================
-// REALTIME LISTENER
+// CHARGEMENT FIREBASE
 // =======================
 onValue(ref(db, "missions"), (snapshot) => {
 
@@ -31,7 +27,7 @@ onValue(ref(db, "missions"), (snapshot) => {
 });
 
 // =======================
-// CREATE MISSION
+// CREER MISSION
 // =======================
 window.createMission = function (m) {
 
@@ -51,45 +47,23 @@ window.createMission = function (m) {
 
         createdAt: Date.now()
     });
-
-    // notification simple (si existant)
-    if (window.createNotification) {
-        window.createNotification(
-            `Nouvelle mission du ${m.startDate} au ${m.endDate}`
-        );
-    }
 };
 
 // =======================
 // PARTICIPATION
 // =======================
-
-window.pendingAction = null;
-
-// =======================
-// CHOIX UTILISATEUR (UI TEMPORAIRE)
-// =======================
 window.selectParticipation = function (id, status) {
 
-    window.pendingAction = {
-        id,
-        status
-    };
+    window.pending = { id, status };
 
-    alert(`Choix enregistré : ${status}. Clique sur VALIDER pour confirmer.`);
+    alert("Choix enregistré. Clique sur VALIDER.");
 };
 
-// =======================
-// VALIDATION ACTION
-// =======================
 window.validateParticipation = function () {
 
-    if (!window.pendingAction) {
-        alert("Aucune action à valider");
-        return;
-    }
+    if (!window.pending) return;
 
-    const { id, status } = window.pendingAction;
+    const { id, status } = window.pending;
 
     const m = missions[id];
     if (!m) return;
@@ -97,31 +71,29 @@ window.validateParticipation = function () {
     const login = user.login;
 
     if (status === "present") {
-        m.participants[login] = user;
+        m.participants[login] = true;
         delete m.absent[login];
     }
 
     if (status === "absent") {
-        m.absent[login] = user;
+        m.absent[login] = true;
         delete m.participants[login];
     }
 
     update(ref(db, "missions/" + id), m);
 
-    window.pendingAction = null;
-
-    alert("Participation validée !");
+    window.pending = null;
 };
 
 // =======================
-// DELETE MISSION
+// SUPPRESSION
 // =======================
 window.deleteMission = function (id) {
     remove(ref(db, "missions/" + id));
 };
 
 // =======================
-// RENDER BY DATE
+// AFFICHAGE
 // =======================
 function renderByDate(date) {
 
@@ -131,84 +103,43 @@ function renderByDate(date) {
 
         if (!m.startDate || !m.endDate) return;
 
-        // mission active sur la date
-        const isInRange = date >= m.startDate && date <= m.endDate;
+        const inRange = date >= m.startDate && date <= m.endDate;
 
-        if (!isInRange) return;
+        if (!inRange) return;
+
+        const participants = Object.keys(m.participants || {});
+        const absents = Object.keys(m.absent || {});
 
         const div = document.createElement("div");
         div.className = "mission";
 
-        const isCommand = user.role === "commandement";
+        div.innerHTML = `
+            <h3>${m.title}</h3>
+            <p>${m.description || ""}</p>
 
-        
-div.innerHTML = `
-    <h3>${m.title}</h3>
-    <p>${m.description || ""}</p>
+            <p>📅 Du ${m.startDate} au ${m.endDate}</p>
+            <p>📍 ${m.location || ""}</p>
 
-    <p>📅 Du ${m.startDate} au ${m.endDate}</p>
-    <p>📍 ${m.location || ""}</p>
+            <button onclick="selectParticipation('${m.id}','present')">Je participe</button>
+            <button onclick="selectParticipation('${m.id}','absent')">Indisponible</button>
+            <button onclick="validateParticipation()">Valider</button>
 
-    <button onclick="selectParticipation('${m.id}', 'present')">Je participe</button>
-    <button onclick="selectParticipation('${m.id}', 'absent')">Indisponible</button>
+            <hr>
 
-    <button onclick="validateParticipation()">Valider</button>
+            <p><b>🟢 Présents</b></p>
+            ${participants.length ? participants.map(u => `<div>${u}</div>`).join("") : "<div>Aucun</div>"}
 
-    <hr>
+            <p><b>🔴 Absents</b></p>
+            ${absents.length ? absents.map(u => `<div>${u}</div>`).join("") : "<div>Aucun</div>"}
 
-    <p><strong>👥 Présents :</strong></p>
-    <ul>
-        ${Object.keys(m.participants || {}).map(u => `<li>🟢 ${u}</li>`).join("")}
-    </ul>
-
-    <p><strong>❌ Absents :</strong></p>
-    <ul>
-        ${Object.keys(m.absent || {}).map(u => `<li>🔴 ${u}</li>`).join("")}
-    </ul>
-
-    ${isCommand ? `<button onclick="deleteMission('${m.id}')">Supprimer</button>` : ""}
-`;
+            ${user.role === "commandement"
+                ? `<button onclick="deleteMission('${m.id}')">Supprimer</button>`
+                : ""
+            }
+        `;
 
         missionsDiv.appendChild(div);
     });
 }
 
-// =======================
-// EXPORT
-// =======================
 window.renderMissionsByDate = renderByDate;
-
-// =======================
-// DASHBOARD
-// =======================
-window.renderDashboard = function () {
-
-    const user = JSON.parse(localStorage.getItem("BLEU4_USER"));
-    if (!user || user.role !== "commandement") return;
-
-    let total = 0;
-    let present = 0;
-    let absent = 0;
-
-    Object.values(missions).forEach(m => {
-
-        total++;
-
-        present += Object.keys(m.participants || {}).length;
-        absent += Object.keys(m.absent || {}).length;
-    });
-
-    const pending = Math.max(0, total * 2 - (present + absent));
-
-    const t = document.getElementById("statsTotal");
-    const p = document.getElementById("statsPresent");
-    const a = document.getElementById("statsAbsent");
-    const s = document.getElementById("statsPending");
-
-    if (!t) return;
-
-    t.innerText = `Missions : ${total}`;
-    p.innerText = `Présents : ${present}`;
-    a.innerText = `Absents : ${absent}`;
-    s.innerText = `Sans réponse : ${pending}`;
-};
