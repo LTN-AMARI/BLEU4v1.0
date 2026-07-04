@@ -94,3 +94,18 @@ button:hover {
     width: 48%;
     margin: 5px 1%;
 }
+#notifications {
+    position: fixed;
+    top: 0;
+    width: 100%;
+    z-index: 999;
+}
+
+.notif {
+    background: #f5d76e;
+    color: black;
+    padding: 10px;
+    text-align: center;
+    font-weight: bold;
+    border-bottom: 1px solid #000;
+}
