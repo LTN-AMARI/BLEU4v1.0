@@ -46,3 +46,4 @@ window.renderCalendar = function() {
         calendar.appendChild(day);
     }
 };
+window.renderCalendar();
