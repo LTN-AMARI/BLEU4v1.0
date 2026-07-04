@@ -42,7 +42,9 @@ window.createMission = function (mission) {
         participants: {},
         absent: {},
         createdAt: Date.now()
+        
     });
+    window.createNotification("Nouvelle mission le " + mission.startDate);
 
 };
 
