@@ -2,117 +2,71 @@
 const user = JSON.parse(localStorage.getItem("BLEU4_USER"));
 
 if (!user) {
-  window.location.href = "index.html";
+    window.location.href = "index.html";
 }
 
 // =======================
 // HEADER
 // =======================
 document.getElementById("userInfo").innerText =
-  `${user.login} - ${user.role}`;
+    `${user.login} — ${user.role}`;
 
 document.getElementById("logoutBtn").onclick = () => {
-  localStorage.removeItem("BLEU4_USER");
-  location.reload();
+    localStorage.removeItem("BLEU4_USER");
+    location.reload();
 };
 
 // =======================
-// STATE CALENDAR
+// ROLE CONTROL (IMPORTANT)
 // =======================
-let currentDate = new Date();
-let missionsGlobal = {};
+window.addEventListener("DOMContentLoaded", () => {
 
-// =======================
-// NAV MONTH
-// =======================
-function changeMonth(offset) {
-  currentDate.setMonth(currentDate.getMonth() + offset);
-  renderCalendar(missionsGlobal);
-}
+    const box = document.getElementById("createMissionBox");
 
-document.getElementById("prevMonth")?.addEventListener("click", () => changeMonth(-1));
-document.getElementById("nextMonth")?.addEventListener("click", () => changeMonth(1));
-
-// =======================
-// CALENDAR RENDER
-// =======================
-window.renderCalendar = function (missions = {}) {
-
-  missionsGlobal = missions;
-
-  const cal = document.getElementById("calendar");
-  const title = document.getElementById("monthTitle");
-
-  if (!cal) return;
-
-  const year = currentDate.getFullYear();
-  const month = currentDate.getMonth();
-
-  title.innerText = `${year} - ${month + 1}`;
-
-  cal.innerHTML = "";
-
-  const daysInMonth = new Date(year, month + 1, 0).getDate();
-
-  for (let d = 1; d <= daysInMonth; d++) {
-
-    const dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
-
-    const day = document.createElement("div");
-    day.className = "day";
-    day.innerText = d;
-
-    // highlight mission
-    const hasMission = Object.values(missions).some(m =>
-      m.start && m.end &&
-      dateStr >= m.start &&
-      dateStr <= m.end
-    );
-
-    if (hasMission) {
-      day.style.background = "#ffd54f";
+    // ❌ MEMBRE = PAS DE CREATION
+    if (user.role !== "commandement") {
+        if (box) box.style.display = "none";
     }
 
-    day.onclick = () => {
-      renderDay(dateStr, missions);
-    };
+    // =======================
+    // CREATE BUTTON
+    // =======================
+    const btn = document.getElementById("createBtn");
 
-    cal.appendChild(day);
-  }
-};
+    if (!btn) return;
 
-// =======================
-// DAY VIEW
-// =======================
-function renderDay(date, missions) {
+    btn.addEventListener("click", () => {
 
-  const box = document.getElementById("missions");
-  box.innerHTML = `<h3>${date}</h3>`;
+        const mission = {
+            title: document.getElementById("mTitle")?.value.trim(),
+            description: document.getElementById("mDesc")?.value.trim(),
+            startDate: document.getElementById("mStartDate")?.value,
+            endDate: document.getElementById("mEndDate")?.value,
+            location: document.getElementById("mLocation")?.value,
+            concerned: document.getElementById("mConcerned")?.value
+        };
 
-  Object.values(missions).forEach(m => {
+        console.log("CREATE CLICK", mission);
 
-    if (!m.start || !m.end) return;
-    if (date < m.start || date > m.end) return;
+        if (!mission.title || !mission.startDate || !mission.endDate) {
+            alert("Titre + dates obligatoires");
+            return;
+        }
 
-    const div = document.createElement("div");
+        if (!window.createMission) {
+            alert("Erreur: createMission introuvable");
+            return;
+        }
 
-    div.innerHTML = `
-      <h4>${m.title}</h4>
-      <p>${m.start} → ${m.end}</p>
+        window.createMission(mission);
 
-      <button onclick="participate('${m.id}','present')">✔ OK</button>
-      <button onclick="participate('${m.id}','absent')">❌ NO</button>
-    `;
+        alert("Mission créée ✔");
 
-    box.appendChild(div);
-  });
-}
-
-// =======================
-// INIT MONTH
-// =======================
-window.addEventListener("load", () => {
-  if (window.renderCalendar) {
-    window.renderCalendar({});
-  }
+        // reset
+        ["mTitle","mDesc","mStartDate","mEndDate","mLocation","mConcerned"]
+        .forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.value = "";
+        });
+    });
 });
