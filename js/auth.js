@@ -1,10 +1,16 @@
+
+// =======================
+// AUTH BLEU4 V2
+// =======================
+
+// récup inputs
+const loginInput = document.getElementById("login");
 const roleSelect = document.getElementById("role");
 const passwordBox = document.getElementById("passwordBox");
-const loginInput = document.getElementById("login");
 const passwordInput = document.getElementById("password");
 const btnLogin = document.getElementById("btnLogin");
 
-// Afficher / cacher mot de passe si commandement
+// afficher mot de passe seulement pour commandement
 roleSelect.addEventListener("change", () => {
     if (roleSelect.value === "commandement") {
         passwordBox.style.display = "block";
@@ -13,35 +19,34 @@ roleSelect.addEventListener("change", () => {
     }
 });
 
-// LOGIN
+// login
 btnLogin.addEventListener("click", () => {
 
-    const login = loginInput.value.trim().toUpperCase();
+    const login = loginInput.value.trim();
     const role = roleSelect.value;
     const password = passwordInput.value;
 
     if (!login) {
-        alert("Veuillez entrer GRADE NOM");
+        alert("Entre ton GRADE NOM");
         return;
     }
 
-    // sécurité commandement
+    // sécurité simple commandement
     if (role === "commandement") {
         if (password !== "BLEU4ADMIN") {
-            alert("Mot de passe incorrect");
+            alert("Code commandement incorrect");
             return;
         }
     }
 
-    // création utilisateur
+    // sauvegarde session
     const user = {
-        login: login,
-        role: role
+        login,
+        role
     };
 
-    // sauvegarde locale
     localStorage.setItem("BLEU4_USER", JSON.stringify(user));
 
-    // redirection vers app
+    // redirect
     window.location.href = "app.html";
 });
