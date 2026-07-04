@@ -1,17 +1,23 @@
+
 import { db, ref, set, onValue, update, remove } from "./firebase.js";
 
-const user = JSON.parse(localStorage.getItem("BLEU4_USER"));
+// =======================
+// USER SAFE
+// =======================
+const user = JSON.parse(localStorage.getItem("BLEU4_USER")) || { login: "unknown", role: "membre" };
 
 const missionsDiv = document.getElementById("missions");
 
 let missions = {};
 
 // =======================
-// CHARGEMENT FIREBASE
+// FIREBASE LISTENER (UNIQUE)
 // =======================
 onValue(ref(db, "missions"), (snapshot) => {
 
     missions = snapshot.val() || {};
+
+    console.log("🔥 FIREBASE DATA :", missions);
 
     if (window.renderCalendar) {
         window.renderCalendar(missions);
@@ -27,7 +33,7 @@ onValue(ref(db, "missions"), (snapshot) => {
 });
 
 // =======================
-// CREER MISSION
+// CREATE MISSION
 // =======================
 window.createMission = function (m) {
 
@@ -50,9 +56,8 @@ window.createMission = function (m) {
 };
 
 // =======================
-// PARTICIPATION
+// PARTICIPATION (1 CLICK DIRECT)
 // =======================
-
 window.participate = function (id, status) {
 
     const m = missions[id];
@@ -60,15 +65,12 @@ window.participate = function (id, status) {
 
     const login = user.login;
 
-    // sécurité structure
     if (!m.participants) m.participants = {};
     if (!m.absent) m.absent = {};
 
-    // reset
     delete m.participants[login];
     delete m.absent[login];
 
-    // action directe
     if (status === "present") {
         m.participants[login] = true;
     }
@@ -81,14 +83,14 @@ window.participate = function (id, status) {
 };
 
 // =======================
-// SUPPRESSION
+// DELETE
 // =======================
 window.deleteMission = function (id) {
     remove(ref(db, "missions/" + id));
 };
 
 // =======================
-// AFFICHAGE
+// RENDER
 // =======================
 function renderByDate(date) {
 
@@ -99,7 +101,6 @@ function renderByDate(date) {
         if (!m.startDate || !m.endDate) return;
 
         const inRange = date >= m.startDate && date <= m.endDate;
-
         if (!inRange) return;
 
         const participants = Object.keys(m.participants || {});
@@ -115,16 +116,15 @@ function renderByDate(date) {
             <p>📅 Du ${m.startDate} au ${m.endDate}</p>
             <p>📍 ${m.location || ""}</p>
 
-            
-<button onclick="participate('${m.id}','present')"
-style="background:green;color:white;">
-Je participe
-</button>
+            <button onclick="participate('${m.id}','present')"
+            style="background:green;color:white;">
+            Je participe
+            </button>
 
-<button onclick="participate('${m.id}','absent')"
-style="background:red;color:white;">
-Indisponible
-</button>
+            <button onclick="participate('${m.id}','absent')"
+            style="background:red;color:white;">
+            Indisponible
+            </button>
 
             <hr>
 
@@ -143,8 +143,5 @@ Indisponible
         missionsDiv.appendChild(div);
     });
 }
-onValue(ref(db, "missions"), (snapshot) => {
-    console.log("🔥 FIREBASE RAW DATA :", snapshot.val());
-});
 
 window.renderMissionsByDate = renderByDate;
