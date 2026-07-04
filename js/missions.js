@@ -63,7 +63,33 @@ window.createMission = function (m) {
 // =======================
 // PARTICIPATION
 // =======================
-window.participate = function (id, status) {
+
+window.pendingAction = null;
+
+// =======================
+// CHOIX UTILISATEUR (UI TEMPORAIRE)
+// =======================
+window.selectParticipation = function (id, status) {
+
+    window.pendingAction = {
+        id,
+        status
+    };
+
+    alert(`Choix enregistré : ${status}. Clique sur VALIDER pour confirmer.`);
+};
+
+// =======================
+// VALIDATION ACTION
+// =======================
+window.validateParticipation = function () {
+
+    if (!window.pendingAction) {
+        alert("Aucune action à valider");
+        return;
+    }
+
+    const { id, status } = window.pendingAction;
 
     const m = missions[id];
     if (!m) return;
@@ -81,6 +107,10 @@ window.participate = function (id, status) {
     }
 
     update(ref(db, "missions/" + id), m);
+
+    window.pendingAction = null;
+
+    alert("Participation validée !");
 };
 
 // =======================
