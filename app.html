@@ -2,68 +2,61 @@
 <html lang="fr">
 
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>BLEU4 - APP</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BLEU4</title>
 
-    <link rel="stylesheet" href="css/style.css">
+<link rel="stylesheet" href="css/style.css">
 </head>
 
 <body>
 
-<!-- TOP BAR -->
 <div class="topbar">
-    <div id="userInfo">Chargement...</div>
+    <div id="userInfo"></div>
     <button id="logoutBtn">Déconnexion</button>
 </div>
 
-<!-- CONTAINER -->
 <div class="container">
 
-    <!-- CREATION MISSION (COMMANDEMENT ONLY) -->
-    <div id="createMissionBox" class="card">
+<!-- CREATE (commandement only) -->
+<div id="createMissionBox" class="card">
 
-        <h2>CRÉER UNE MISSION</h2>
+<h2>Créer mission</h2>
 
-        <input id="mTitle" placeholder="Titre">
-        <input id="mDesc" placeholder="Description">
-        <input id="mStartDate" type="date">
-        <input id="mEndDate" type="date">
-        <input id="mLocation" placeholder="Lieu">
-        <input id="mConcerned" placeholder="Concernés">
+<input id="mTitle" placeholder="Titre">
+<input id="mDesc" placeholder="Description">
+<input id="mStart" type="date">
+<input id="mEnd" type="date">
+<input id="mLocation" placeholder="Lieu">
 
-        <button id="createBtn">Créer mission</button>
-
-    </div>
-
-    <!-- NAVIGATION CALENDRIER -->
-    <div class="card">
-
-        <div style="display:flex; gap:10px; align-items:center;">
-            <button id="prevMonth">⬅</button>
-            <button id="nextMonth">➡</button>
-            <h2 id="monthTitle"></h2>
-        </div>
-
-        <div id="calendar"></div>
-
-    </div>
-
-    <!-- MISSIONS -->
-    <div class="card">
-
-        <h2 id="selectedDateTitle">MISSIONS</h2>
-        <div id="missions"></div>
-
-    </div>
+<button id="createBtn">Créer</button>
 
 </div>
 
-<!-- SCRIPTS (IMPORTANT ORDRE) -->
+<!-- CALENDAR -->
+<div class="card">
+
+<div style="display:flex; gap:10px;">
+<button id="prevMonth">⬅</button>
+<button id="nextMonth">➡</button>
+<h2 id="monthTitle"></h2>
+</div>
+
+<div id="calendar"></div>
+
+</div>
+
+<!-- MISSIONS -->
+<div class="card">
+<h2>Missions</h2>
+<div id="missions"></div>
+</div>
+
+</div>
+
 <script type="module" src="js/firebase.js"></script>
 <script type="module" src="js/missions.js"></script>
 <script type="module" src="js/app.js"></script>
 
 </body>
-
 </html>
