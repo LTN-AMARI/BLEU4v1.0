@@ -1,23 +1,18 @@
 
 import { db, ref, set, onValue, update, remove } from "./firebase.js";
 
-// =======================
-// USER SAFE
-// =======================
-const user = JSON.parse(localStorage.getItem("BLEU4_USER")) || { login: "unknown", role: "membre" };
+const user = JSON.parse(localStorage.getItem("BLEU4_USER")) || {};
 
 const missionsDiv = document.getElementById("missions");
 
 let missions = {};
 
 // =======================
-// FIREBASE LISTENER (UNIQUE)
+// FIREBASE LISTENER
 // =======================
 onValue(ref(db, "missions"), (snapshot) => {
 
     missions = snapshot.val() || {};
-
-    console.log("🔥 FIREBASE DATA :", missions);
 
     if (window.renderCalendar) {
         window.renderCalendar(missions);
@@ -27,8 +22,8 @@ onValue(ref(db, "missions"), (snapshot) => {
         window.renderDashboard();
     }
 
-    if (window.selectedDate) {
-        renderByDate(window.selectedDate);
+    if (window.selectedDate && window.renderMissionsByDate) {
+        window.renderMissionsByDate(window.selectedDate);
     }
 });
 
@@ -47,16 +42,14 @@ window.createMission = function (m) {
         endDate: m.endDate,
         location: m.location,
         concerned: m.concerned,
-
         participants: {},
         absent: {},
-
         createdAt: Date.now()
     });
 };
 
 // =======================
-// PARTICIPATION (1 CLICK DIRECT)
+// PARTICIPATION (SAFE)
 // =======================
 window.participate = function (id, status) {
 
@@ -71,13 +64,8 @@ window.participate = function (id, status) {
     delete m.participants[login];
     delete m.absent[login];
 
-    if (status === "present") {
-        m.participants[login] = true;
-    }
-
-    if (status === "absent") {
-        m.absent[login] = true;
-    }
+    if (status === "present") m.participants[login] = true;
+    if (status === "absent") m.absent[login] = true;
 
     update(ref(db, "missions/" + id), m);
 };
@@ -90,70 +78,39 @@ window.deleteMission = function (id) {
 };
 
 // =======================
-// RENDER
+// RENDER BY DATE
 // =======================
+window.renderMissionsByDate = function (date) {
 
-function renderByDate(date) {
-
+    if (!missionsDiv) return;
     missionsDiv.innerHTML = "";
 
     Object.values(missions).forEach(m => {
 
         if (!m.startDate || !m.endDate) return;
-
-        const inRange = date >= m.startDate && date <= m.endDate;
-        if (!inRange) return;
-
-        const participants = Object.keys(m.participants || {});
-        const absents = Object.keys(m.absent || {});
-
-        const isPresent = m.participants && m.participants[user.login];
-        const isAbsent = m.absent && m.absent[user.login];
+        if (date < m.startDate || date > m.endDate) return;
 
         const div = document.createElement("div");
         div.className = "mission";
 
+        const participants = Object.keys(m.participants || {});
+        const absents = Object.keys(m.absent || {});
+
         div.innerHTML = `
             <h3>${m.title}</h3>
             <p>${m.description || ""}</p>
-
-            <p>📅 Du ${m.startDate} au ${m.endDate}</p>
             <p>📍 ${m.location || ""}</p>
 
-            <!-- BOUTON PRESENT -->
             <button onclick="participate('${m.id}','present')"
-                style="
-                    background:${isPresent ? '#00c853' : 'green'};
-                    color:white;
-                    padding:8px;
-                    margin-right:5px;
-                ">
-                🟢 Je participe
-            </button>
+            style="background:green;color:white;">Je participe</button>
 
-            <!-- BOUTON ABSENT -->
             <button onclick="participate('${m.id}','absent')"
-                style="
-                    background:${isAbsent ? '#d50000' : 'red'};
-                    color:white;
-                    padding:8px;
-                ">
-                🔴 Indisponible
-            </button>
+            style="background:red;color:white;">Indisponible</button>
 
             <hr>
 
-            <p><b>🟢 Présents</b></p>
-            ${participants.length > 0
-                ? participants.map(u => `<div>${u}</div>`).join("")
-                : "<div>Aucun</div>"
-            }
-
-            <p><b>🔴 Absents</b></p>
-            ${absents.length > 0
-                ? absents.map(u => `<div>${u}</div>`).join("")
-                : "<div>Aucun</div>"
-            }
+            <p>🟢 Présents : ${participants.join(", ") || "Aucun"}</p>
+            <p>🔴 Absents : ${absents.join(", ") || "Aucun"}</p>
 
             ${user.role === "commandement"
                 ? `<button onclick="deleteMission('${m.id}')">Supprimer</button>`
@@ -163,9 +120,4 @@ function renderByDate(date) {
 
         missionsDiv.appendChild(div);
     });
-}
-        missionsDiv.appendChild(div);
-    });
-}
-
-window.renderMissionsByDate = renderByDate;
+};
