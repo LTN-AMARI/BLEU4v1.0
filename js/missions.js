@@ -14,17 +14,19 @@ onValue(ref(db, "missions"), (snap) => {
 
 // CREATE
 window.createMission = function (m) {
-  const id = Date.now().toString();
 
-  set(ref(db, "missions/" + id), {
-  title,
-  description,
-  start,
-  end,
-  location,
-  concerned
-}
-  });
+    const id = Date.now().toString();
+
+    set(ref(db, "missions/" + id), {
+        id,
+        title: m.title || "",
+        description: m.description || "",
+        start: m.start || "",
+        end: m.end || "",
+        location: m.location || "",
+        concerned: m.concerned || "",
+        participants: {}
+    });
 };
 
 // PARTICIPATION
