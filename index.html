@@ -1,21 +1,25 @@
 <!DOCTYPE html>
 <html lang="fr">
-
 <head>
+
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>BLEU4</title>
+    <title>BLEU4 - Connexion</title>
+    <meta name="theme-color" content="#0B1F3A">
+
+    <link rel="manifest" href="manifest.json">
+    <link rel="icon" href="assets/logo.png">
 
     <link rel="stylesheet" href="css/style.css">
-</head>
 
-<body>
+</head>
+<body class="login-page">
 
 <div class="login-container">
 
-    <div class="logo">
+    <div class="logo-block">
         <h1>BLEU4</h1>
-        <p>Gestion des activités</p>
+        <p class="subtitle">Gestion des activités</p>
     </div>
 
     <div class="card">
@@ -25,8 +29,7 @@
             type="text"
             id="login"
             placeholder="Ex : SDT PINGOUIN"
-            autocomplete="off"
-        >
+            autocomplete="off">
 
         <label>RÔLE</label>
 
@@ -42,8 +45,7 @@
             <input
                 type="password"
                 id="password"
-                placeholder="********"
-            >
+                placeholder="********">
 
         </div>
 
@@ -53,10 +55,11 @@
 
     </div>
 
+    <p class="version">BLEU4 v2</p>
+
 </div>
 
 <script type="module" src="js/auth.js"></script>
 
 </body>
-
 </html>
