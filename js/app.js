@@ -36,7 +36,7 @@ function hideSplashScreen() {
 
     setTimeout(() => {
         splash.classList.add("fade-out");
-        setTimeout(() => splash.remove(), 700);
+        setTimeout(() => splash.remove(), 850);
     }, remaining);
 
 }
