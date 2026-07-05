@@ -41,10 +41,72 @@ body{
     font-size:32px;
 }
 
+.login-logo{
+    width:160px;
+    height:160px;
+    object-fit:contain;
+    display:block;
+    margin:0 auto 10px auto;
+}
+
 .logo{
     width:120px;
     display:block;
     margin:20px auto;
+}
+
+/* ===========================
+   ECRAN DE DEMARRAGE (SPLASH)
+=========================== */
+
+.splash-screen{
+
+    position:fixed;
+    inset:0;
+
+    background:#0B1F3A;
+
+    display:flex;
+    align-items:center;
+    justify-content:center;
+
+    z-index:9999;
+
+    transition:opacity .6s ease;
+
+}
+
+.splash-screen.fade-out{
+
+    opacity:0;
+
+    pointer-events:none;
+
+}
+
+.splash-logo{
+
+    width:200px;
+    height:200px;
+
+    object-fit:contain;
+
+    animation:splashPulse 1.6s ease-in-out infinite;
+
+}
+
+@keyframes splashPulse{
+
+    0%, 100%{
+        transform:scale(1);
+        opacity:1;
+    }
+
+    50%{
+        transform:scale(1.08);
+        opacity:.85;
+    }
+
 }
 
 .subtitle{
@@ -245,110 +307,119 @@ button:hover{
 }
 
 /* ===========================
-   DASHBOARD
+   MISSION - EDITION PRESENCE
+   (carte cliquable pour le commandement)
 =========================== */
 
-.stats{
+.mission.clickable{
 
-    display:grid;
-
-    grid-template-columns:repeat(4,1fr);
-
-    gap:15px;
+    cursor:pointer;
 
 }
 
-.stat{
+.mission.clickable:hover{
 
-    background:#f5f7fb;
-
-    border-radius:10px;
-
-    text-align:center;
-
-    padding:20px;
+    background:#f2f5fb;
 
 }
 
-.stat span{
-
-    display:block;
-
-    font-size:34px;
-
-    font-weight:bold;
-
-    color:#0B1F3A;
-
-}
-
-/* ===========================
-   DASHBOARD - DETAIL MISSION
-=========================== */
-
-.dashboard-mission-select{
-
-    margin-top:20px;
-
-}
-
-.dashboard-mission-select label{
-
-    display:block;
-
-    margin-bottom:8px;
-
-    font-weight:bold;
-
-    color:#0B1F3A;
-
-}
-
-.mission-detail{
+.mission-detail-toggle{
 
     margin-top:15px;
 
-    padding:15px;
+    padding-top:10px;
 
-    background:#f5f7fb;
-
-    border-radius:10px;
-
-    border-left:5px solid #0B1F3A;
+    border-top:1px solid #ddd;
 
 }
 
-.detail-columns{
+.mission-detail-toggle.hidden{
 
-    display:grid;
-
-    grid-template-columns:1fr 1fr;
-
-    gap:15px;
-
-    margin-top:10px;
+    display:none;
 
 }
 
-.detail-columns h4{
+.response-row{
+
+    display:flex;
+
+    align-items:center;
+
+    justify-content:space-between;
+
+    gap:10px;
+
+    padding:8px 0;
+
+    border-bottom:1px solid #eee;
+
+    flex-wrap:wrap;
+
+}
+
+.response-row:last-child{
+
+    border-bottom:none;
+
+}
+
+.response-name{
+
+    font-weight:bold;
+
+}
+
+.response-group{
+
+    margin-top:15px;
+
+}
+
+.response-group-title{
 
     margin-bottom:8px;
 
-    color:#0B1F3A;
+    padding-bottom:6px;
+
+    border-bottom:2px solid;
 
 }
 
-.detail-columns p{
+.response-group-title.present{
 
-    margin:4px 0;
+    color:#2e7d32;
+    border-color:#2e7d32;
 
 }
 
-.detail-columns .muted{
+.response-group-title.absent{
+
+    color:#c62828;
+    border-color:#c62828;
+
+}
+
+.muted{
 
     color:#999;
 
     font-style:italic;
+
+}
+
+.btn-switch{
+
+    background:#0B1F3A;
+
+    color:white;
+
+}
+
+button.small{
+
+    padding:6px 12px;
+
+    font-size:13px;
 
 }
 
@@ -548,19 +619,7 @@ button:hover{
 
 @media(max-width:768px){
 
-.stats{
-
-grid-template-columns:1fr 1fr;
-
-}
-
 .row{
-
-grid-template-columns:1fr;
-
-}
-
-.detail-columns{
 
 grid-template-columns:1fr;
 
@@ -583,12 +642,6 @@ font-size:18px;
 }
 
 @media(max-width:500px){
-
-.stats{
-
-grid-template-columns:1fr;
-
-}
 
 .day{
 
