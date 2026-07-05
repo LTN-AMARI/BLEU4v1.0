@@ -1,213 +1,162 @@
-import { db, ref, set, onValue, update, remove } from "./firebase.js";
+// ======================================
+// BLEU4 v2 - MISSIONS
+// Affichage de la liste des missions du jour
+// sélectionné + actions (présent/indisponible/suppression)
+// ======================================
 
-const user = JSON.parse(localStorage.getItem("BLEU4_USER")) || {};
+import { setResponse, deleteMissionInDb } from "./firebase.js";
 
-const missionsDiv = document.getElementById("missions");
+export function renderMissionList(missions, date, user) {
 
-let missions = {};
+    const container = document.getElementById("missions");
+    const titleEl = document.getElementById("selectedDateTitle");
 
-// ===========================
-// CHARGEMENT FIREBASE
-// ===========================
+    if (!container || !titleEl) return;
 
-onValue(ref(db, "missions"), (snapshot) => {
-
-    missions = snapshot.val() || {};
-
-    // Mise à jour calendrier
-    if (window.setCalendarMissions) {
-        window.setCalendarMissions(missions);
+    if (!date) {
+        titleEl.innerText = "Sélectionnez un jour";
+        container.innerHTML = "";
+        return;
     }
 
-    renderMissions();
-    renderDashboard();
+    titleEl.innerText = formatDateFr(date);
 
-});
+    const dayMissions = missions.filter(
+        (m) => m.start && m.end && date >= m.start && date <= m.end
+    );
 
-// ===========================
-// CREATION MISSION
-// ===========================
+    container.innerHTML = "";
 
-window.createMission = function (mission) {
-
-    const id = Date.now().toString();
-
-    set(ref(db, "missions/" + id), {
-
-        id: id,
-
-        title: mission.title || "",
-
-        description: mission.description || "",
-
-        start: mission.start || "",
-
-        end: mission.end || "",
-
-        location: mission.location || "",
-
-        concerned: mission.concerned || "Tous",
-
-        participants: {}
-
-    });
-
-};
-
-// ===========================
-// PARTICIPATION
-// ===========================
-
-window.participate = function (id, status) {
-
-    if (!missions[id]) return;
-
-    const login = user.login;
-
-    if (!login) return;
-
-    if (!missions[id].participants) {
-        missions[id].participants = {};
+    if (dayMissions.length === 0) {
+        container.innerHTML = "<p>Aucune mission ce jour.</p>";
+        return;
     }
 
-    missions[id].participants[login] = status;
+    dayMissions.forEach((mission) => {
 
-    update(ref(db, "missions/" + id), {
+        const responses = mission.responses || {};
+        const myStatus = responses[user.login];
 
-        participants: missions[id].participants
+        const div = document.createElement("div");
+        div.className = "mission";
 
-    });
-
-};
-
-// ===========================
-// SUPPRESSION
-// ===========================
-
-window.deleteMission = function (id) {
-
-    if (confirm("Supprimer cette mission ?")) {
-
-        remove(ref(db, "missions/" + id));
-
-    }
-
-};
-
-// ===========================
-// AFFICHAGE MISSIONS
-// ===========================
-
-function renderMissions() {
-
-    if (!missionsDiv) return;
-
-    missionsDiv.innerHTML = "";
-
-    Object.values(missions).forEach(m => {
-
-        const participants = m.participants || {};
-
-        const presents = Object.entries(participants)
-            .filter(([_, s]) => s === "present")
-            .map(([u]) => u);
-
-        const absents = Object.entries(participants)
-            .filter(([_, s]) => s === "absent")
-            .map(([u]) => u);
-
-        const card = document.createElement("div");
-
-        card.className = "mission";
-
-        card.innerHTML = `
-
-            <h3>${m.title}</h3>
-
-            <p>📅 ${m.start} → ${m.end}</p>
-
-            <p>📍 ${m.location || "-"}</p>
-
-            <div class="actions">
-
-                <button class="btn-present"
-                    onclick="participate('${m.id}','present')">
-                    Je participe
-                </button>
-
-                <button class="btn-absent"
-                    onclick="participate('${m.id}','absent')">
-                    Indisponible
-                </button>
-
-            </div>
-
-            <div class="list">
-
-                <b>🟢 Présents (${presents.length})</b><br>
-
-                ${presents.length ? presents.join("<br>") : "Aucun"}
-
-                <br><br>
-
-                <b>🔴 Indisponibles (${absents.length})</b><br>
-
-                ${absents.length ? absents.join("<br>") : "Aucun"}
-
-            </div>
-
-            ${
-                user.role === "commandement"
-                ? `<br><button class="btn-delete"
-                    onclick="deleteMission('${m.id}')">
-                    Supprimer
-                   </button>`
-                : ""
-            }
-
+        div.innerHTML = `
+            <h3>${escapeHtml(mission.title)}</h3>
+            ${mission.description ? `<p>${escapeHtml(mission.description)}</p>` : ""}
+            <p><strong>Lieu :</strong> ${escapeHtml(mission.location || "—")}</p>
+            <p><strong>Concernés :</strong> ${escapeHtml(mission.concerned || "Tous")}</p>
+            <p><strong>Période :</strong> ${mission.start} → ${mission.end}</p>
         `;
 
-        missionsDiv.appendChild(card);
+        // ===========================
+        // ACTIONS présent / indisponible
+        // ===========================
+
+        const actions = document.createElement("div");
+        actions.className = "actions";
+
+        const presentBtn = document.createElement("button");
+        presentBtn.className = "btn-present";
+        presentBtn.innerText = myStatus === "present" ? "✔ Présent" : "Présent";
+        presentBtn.addEventListener("click", async () => {
+            presentBtn.disabled = true;
+            try {
+                await setResponse(mission.id, user.login, "present");
+            } catch (err) {
+                console.error(err);
+                alert("Erreur lors de l'enregistrement de la réponse.");
+            } finally {
+                presentBtn.disabled = false;
+            }
+        });
+
+        const absentBtn = document.createElement("button");
+        absentBtn.className = "btn-absent";
+        absentBtn.innerText = myStatus === "absent" ? "✔ Indisponible" : "Indisponible";
+        absentBtn.addEventListener("click", async () => {
+            absentBtn.disabled = true;
+            try {
+                await setResponse(mission.id, user.login, "absent");
+            } catch (err) {
+                console.error(err);
+                alert("Erreur lors de l'enregistrement de la réponse.");
+            } finally {
+                absentBtn.disabled = false;
+            }
+        });
+
+        actions.appendChild(presentBtn);
+        actions.appendChild(absentBtn);
+
+        // ===========================
+        // COMMANDEMENT UNIQUEMENT :
+        // suppression + liste des réponses
+        // ===========================
+
+        if (user.role === "commandement") {
+
+            const deleteBtn = document.createElement("button");
+            deleteBtn.className = "btn-delete";
+            deleteBtn.innerText = "Supprimer";
+            deleteBtn.addEventListener("click", async () => {
+
+                if (!confirm("Supprimer cette mission ?")) return;
+
+                deleteBtn.disabled = true;
+
+                try {
+                    await deleteMissionInDb(mission.id);
+                } catch (err) {
+                    console.error(err);
+                    alert("Erreur lors de la suppression.");
+                    deleteBtn.disabled = false;
+                }
+
+            });
+
+            actions.appendChild(deleteBtn);
+
+            const list = document.createElement("div");
+            list.className = "list";
+
+            const entries = Object.entries(responses);
+
+            if (entries.length === 0) {
+                list.innerHTML = "<p>Aucune réponse pour le moment.</p>";
+            } else {
+                list.innerHTML = entries
+                    .map(([login, status]) =>
+                        `<p>${escapeHtml(login)} — ${status === "present" ? "Présent" : "Indisponible"}</p>`
+                    )
+                    .join("");
+            }
+
+            div.appendChild(actions);
+            div.appendChild(list);
+
+        } else {
+
+            div.appendChild(actions);
+
+        }
+
+        container.appendChild(div);
 
     });
 
 }
 
-// ===========================
-// TABLEAU DE BORD
-// ===========================
+// ======================================
+// UTILITAIRES
+// ======================================
 
-function renderDashboard() {
+function formatDateFr(dateStr) {
+    const [y, m, d] = dateStr.split("-");
+    return `${d}/${m}/${y}`;
+}
 
-    const total = Object.keys(missions).length;
-
-    let present = 0;
-    let absent = 0;
-
-    Object.values(missions).forEach(m => {
-
-        const p = m.participants || {};
-
-        Object.values(p).forEach(status => {
-
-            if (status === "present") present++;
-
-            if (status === "absent") absent++;
-
-        });
-
-    });
-
-    const pending = 0;
-
-    const totalEl = document.getElementById("statsTotal");
-    const presentEl = document.getElementById("statsPresent");
-    const absentEl = document.getElementById("statsAbsent");
-    const pendingEl = document.getElementById("statsPending");
-
-    if (totalEl) totalEl.innerText = total;
-    if (presentEl) presentEl.innerText = present;
-    if (absentEl) absentEl.innerText = absent;
-    if (pendingEl) pendingEl.innerText = pending;
-
+function escapeHtml(str) {
+    const div = document.createElement("div");
+    div.textContent = str;
+    return div.innerHTML;
 }
