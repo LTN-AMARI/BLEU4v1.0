@@ -1,71 +1,188 @@
-
 import { db, ref, set, onValue, update, remove } from "./firebase.js";
 
 const user = JSON.parse(localStorage.getItem("BLEU4_USER")) || {};
 
-let missions = {};
-
 const missionsDiv = document.getElementById("missions");
 
-// LOAD
-onValue(ref(db, "missions"), (snap) => {
+let missions = {};
 
-    missions = snap.val() || {};
+// ===========================
+// CHARGEMENT FIREBASE
+// ===========================
 
-    if (window.renderCalendar) {
-        window.renderCalendar(missions);
+onValue(ref(db, "missions"), (snapshot) => {
+
+    missions = snapshot.val() || {};
+
+    // Mise à jour calendrier
+    if (window.setCalendarMissions) {
+        window.setCalendarMissions(missions);
     }
 
-    render();
-
+    renderMissions();
     renderDashboard();
 
 });
 
-// CREATE
-window.createMission = function (m) {
+// ===========================
+// CREATION MISSION
+// ===========================
+
+window.createMission = function (mission) {
+
     const id = Date.now().toString();
 
     set(ref(db, "missions/" + id), {
-        id,
-        title: m.title || "",
-        start: m.start || "",
-        end: m.end || "",
-        location: m.location || "",
+
+        id: id,
+
+        title: mission.title || "",
+
+        description: mission.description || "",
+
+        start: mission.start || "",
+
+        end: mission.end || "",
+
+        location: mission.location || "",
+
+        concerned: mission.concerned || "Tous",
+
         participants: {}
+
     });
+
 };
 
-// PARTICIPATE
+// ===========================
+// PARTICIPATION
+// ===========================
+
 window.participate = function (id, status) {
-    const m = missions[id];
-    if (!m) return;
 
-    const name = user.login || "user";
+    if (!missions[id]) return;
 
-    if (!m.participants) m.participants = {};
+    const login = user.login;
 
-    m.participants[name] = status;
+    if (!login) return;
+
+    if (!missions[id].participants) {
+        missions[id].participants = {};
+    }
+
+    missions[id].participants[login] = status;
 
     update(ref(db, "missions/" + id), {
-        participants: m.participants
+
+        participants: missions[id].participants
+
     });
 
-    render();
 };
 
-// DELETE
+// ===========================
+// SUPPRESSION
+// ===========================
+
 window.deleteMission = function (id) {
-    remove(ref(db, "missions/" + id));
+
+    if (confirm("Supprimer cette mission ?")) {
+
+        remove(ref(db, "missions/" + id));
+
+    }
+
 };
+
+// ===========================
+// AFFICHAGE MISSIONS
+// ===========================
+
+function renderMissions() {
+
+    if (!missionsDiv) return;
+
+    missionsDiv.innerHTML = "";
+
+    Object.values(missions).forEach(m => {
+
+        const participants = m.participants || {};
+
+        const presents = Object.entries(participants)
+            .filter(([_, s]) => s === "present")
+            .map(([u]) => u);
+
+        const absents = Object.entries(participants)
+            .filter(([_, s]) => s === "absent")
+            .map(([u]) => u);
+
+        const card = document.createElement("div");
+
+        card.className = "mission";
+
+        card.innerHTML = `
+
+            <h3>${m.title}</h3>
+
+            <p>📅 ${m.start} → ${m.end}</p>
+
+            <p>📍 ${m.location || "-"}</p>
+
+            <div class="actions">
+
+                <button class="btn-present"
+                    onclick="participate('${m.id}','present')">
+                    Je participe
+                </button>
+
+                <button class="btn-absent"
+                    onclick="participate('${m.id}','absent')">
+                    Indisponible
+                </button>
+
+            </div>
+
+            <div class="list">
+
+                <b>🟢 Présents (${presents.length})</b><br>
+
+                ${presents.length ? presents.join("<br>") : "Aucun"}
+
+                <br><br>
+
+                <b>🔴 Indisponibles (${absents.length})</b><br>
+
+                ${absents.length ? absents.join("<br>") : "Aucun"}
+
+            </div>
+
+            ${
+                user.role === "commandement"
+                ? `<br><button class="btn-delete"
+                    onclick="deleteMission('${m.id}')">
+                    Supprimer
+                   </button>`
+                : ""
+            }
+
+        `;
+
+        missionsDiv.appendChild(card);
+
+    });
+
+}
+
+// ===========================
+// TABLEAU DE BORD
+// ===========================
 
 function renderDashboard() {
 
-    let total = Object.keys(missions).length;
+    const total = Object.keys(missions).length;
 
     let present = 0;
     let absent = 0;
-    let pending = 0;
 
     Object.values(missions).forEach(m => {
 
@@ -75,17 +192,22 @@ function renderDashboard() {
 
             if (status === "present") present++;
 
-            else if (status === "absent") absent++;
+            if (status === "absent") absent++;
 
         });
 
     });
 
-    pending = 0;
+    const pending = 0;
 
-    document.getElementById("statsTotal").innerText = total;
-    document.getElementById("statsPresent").innerText = present;
-    document.getElementById("statsAbsent").innerText = absent;
-    document.getElementById("statsPending").innerText = pending;
+    const totalEl = document.getElementById("statsTotal");
+    const presentEl = document.getElementById("statsPresent");
+    const absentEl = document.getElementById("statsAbsent");
+    const pendingEl = document.getElementById("statsPending");
+
+    if (totalEl) totalEl.innerText = total;
+    if (presentEl) presentEl.innerText = present;
+    if (absentEl) absentEl.innerText = absent;
+    if (pendingEl) pendingEl.innerText = pending;
 
 }
