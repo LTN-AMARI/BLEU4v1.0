@@ -261,7 +261,7 @@ function renderResponseLists(mission, responses) {
 
     const absentTitle = document.createElement("h4");
     absentTitle.className = "response-group-title absent";
-    absentTitle.innerText = `Indisponibles (${absent.length})`;
+    absentTitle.innerText = `Absents (${absent.length})`;
     absentBlock.appendChild(absentTitle);
 
     if (absent.length === 0) {
@@ -296,7 +296,7 @@ function buildResponseRow(mission, login, currentStatus) {
     const switchBtn = document.createElement("button");
     switchBtn.className = "small btn-switch";
     switchBtn.innerText =
-        currentStatus === "present" ? "→ Indisponible" : "→ Présent";
+        currentStatus === "present" ? "→ Absent" : "→ Présent";
 
     switchBtn.addEventListener("click", async (e) => {
         e.stopPropagation();
