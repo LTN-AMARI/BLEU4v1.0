@@ -72,7 +72,9 @@ body{
 
     z-index:9999;
 
-    transition:opacity .6s ease;
+    opacity:1;
+
+    transition:opacity .8s ease;
 
 }
 
@@ -86,12 +88,24 @@ body{
 
 .splash-logo{
 
-    width:200px;
-    height:200px;
+    width:min(55vw, 240px);
+    height:min(55vw, 240px);
 
     object-fit:contain;
 
-    animation:splashPulse 1.6s ease-in-out infinite;
+    will-change:transform;
+
+    transform-origin:center center;
+
+    animation:splashPulse 2.2s ease-in-out infinite;
+
+}
+
+/* on fige le pulse pendant le fondu pour éviter
+   tout à-coup au moment de la disparition */
+.splash-screen.fade-out .splash-logo{
+
+    animation-play-state:paused;
 
 }
 
@@ -99,12 +113,10 @@ body{
 
     0%, 100%{
         transform:scale(1);
-        opacity:1;
     }
 
     50%{
-        transform:scale(1.08);
-        opacity:.85;
+        transform:scale(1.06);
     }
 
 }
