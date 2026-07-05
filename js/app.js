@@ -1,14 +1,49 @@
 // ======================================
 // BLEU4 v2 - APP (orchestrateur)
 // Point d'entrée de app.html.
-// Fait le lien entre firebase.js, calendar.js,
-// missions.js et dashboard.js.
+// Fait le lien entre firebase.js, calendar.js
+// et missions.js.
 // ======================================
 
 import { listenMissions, createMissionInDb } from "./firebase.js";
 import { initCalendar, setCalendarMissions, getSelectedDate } from "./calendar.js";
-import { renderMissionList } from "./missions.js";
-import { updateDashboard } from "./dashboard.js";
+import { renderMissionList, renderAllMissions } from "./missions.js";
+import { frToIso, autoFormatDateInput } from "./dateUtils.js";
+
+// ======================================
+// ECRAN DE DEMARRAGE (SPLASH)
+// Reste visible au moins 2s, puis fondu.
+// Se cache dès la première réponse Firebase
+// (ou après 8s max en cas de souci réseau).
+// ======================================
+
+const SPLASH_MIN_DURATION = 2000;
+const SPLASH_MAX_DURATION = 8000;
+
+const splashStart = Date.now();
+let splashHidden = false;
+
+function hideSplashScreen() {
+
+    if (splashHidden) return;
+    splashHidden = true;
+
+    const splash = document.getElementById("splashScreen");
+    if (!splash) return;
+
+    const elapsed = Date.now() - splashStart;
+    const remaining = Math.max(0, SPLASH_MIN_DURATION - elapsed);
+
+    setTimeout(() => {
+        splash.classList.add("fade-out");
+        setTimeout(() => splash.remove(), 700);
+    }, remaining);
+
+}
+
+// sécurité : si Firebase ne répond jamais (mauvaise config, réseau…)
+// on ne bloque pas l'utilisateur indéfiniment derrière le logo
+setTimeout(hideSplashScreen, SPLASH_MAX_DURATION);
 
 // ======================================
 // SECURITE / SESSION
@@ -41,17 +76,17 @@ logoutBtn?.addEventListener("click", () => {
 // ======================================
 
 const createBox = document.getElementById("createMissionBox");
-const dashboard = document.getElementById("dashboard");
+const allMissionsBox = document.getElementById("allMissionsBox");
 
 if (user && user.role === "commandement") {
 
     if (createBox) createBox.style.display = "block";
-    if (dashboard) dashboard.style.display = "block";
+    if (allMissionsBox) allMissionsBox.style.display = "block";
 
 } else {
 
     if (createBox) createBox.style.display = "none";
-    if (dashboard) dashboard.style.display = "none";
+    if (allMissionsBox) allMissionsBox.style.display = "none";
 
 }
 
@@ -72,13 +107,18 @@ listenMissions((missions) => {
     allMissions = missions;
 
     setCalendarMissions(missions);
-    updateDashboard(missions);
+
+    if (user && user.role === "commandement") {
+        renderAllMissions(allMissions, user);
+    }
 
     const selected = getSelectedDate();
 
     if (selected) {
         renderMissionList(allMissions, selected, user);
     }
+
+    hideSplashScreen();
 
 });
 
@@ -89,20 +129,34 @@ listenMissions((missions) => {
 // ======================================
 
 const createBtn = document.getElementById("createBtn");
+const mStartInput = document.getElementById("mStart");
+const mEndInput = document.getElementById("mEnd");
+
+// formatage automatique "JJ/MM/AAAA" pendant la saisie
+autoFormatDateInput(mStartInput);
+autoFormatDateInput(mEndInput);
 
 createBtn?.addEventListener("click", async () => {
+
+    const startIso = frToIso(mStartInput.value);
+    const endIso = frToIso(mEndInput.value);
 
     const mission = {
         title: document.getElementById("mTitle").value.trim(),
         description: document.getElementById("mDesc").value.trim(),
-        start: document.getElementById("mStart").value,
-        end: document.getElementById("mEnd").value,
+        start: startIso,
+        end: endIso,
         location: document.getElementById("mLocation").value.trim(),
         concerned: document.getElementById("mConcerned").value.trim() || "Tous"
     };
 
-    if (!mission.title || !mission.start || !mission.end) {
-        alert("Titre, date de début et date de fin obligatoires.");
+    if (!mission.title) {
+        alert("Le titre est obligatoire.");
+        return;
+    }
+
+    if (!startIso || !endIso) {
+        alert("Les dates doivent être valides et au format JJ/MM/AAAA.");
         return;
     }
 
@@ -119,8 +173,8 @@ createBtn?.addEventListener("click", async () => {
 
         document.getElementById("mTitle").value = "";
         document.getElementById("mDesc").value = "";
-        document.getElementById("mStart").value = "";
-        document.getElementById("mEnd").value = "";
+        mStartInput.value = "";
+        mEndInput.value = "";
         document.getElementById("mLocation").value = "";
         document.getElementById("mConcerned").value = "";
 
