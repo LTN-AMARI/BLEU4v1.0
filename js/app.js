@@ -1,12 +1,20 @@
 // ======================================
-// BLEU4 v2 - APP
+// BLEU4 v2 - APP (orchestrateur)
+// Point d'entrée de app.html.
+// Fait le lien entre firebase.js, calendar.js,
+// missions.js et dashboard.js.
 // ======================================
 
-const user = JSON.parse(localStorage.getItem("BLEU4_USER"));
+import { listenMissions, createMissionInDb } from "./firebase.js";
+import { initCalendar, setCalendarMissions, getSelectedDate } from "./calendar.js";
+import { renderMissionList } from "./missions.js";
+import { updateDashboard } from "./dashboard.js";
 
 // ======================================
-// SECURITE
+// SECURITE / SESSION
 // ======================================
+
+const user = JSON.parse(localStorage.getItem("BLEU4_USER") || "null");
 
 if (!user) {
     window.location.href = "index.html";
@@ -19,20 +27,13 @@ if (!user) {
 const userInfo = document.getElementById("userInfo");
 const logoutBtn = document.getElementById("logoutBtn");
 
-if (userInfo) {
+if (userInfo && user) {
     userInfo.textContent = `${user.login} — ${user.role.toUpperCase()}`;
 }
 
-// ======================================
-// DECONNEXION
-// ======================================
-
 logoutBtn?.addEventListener("click", () => {
-
     localStorage.removeItem("BLEU4_USER");
-
     window.location.href = "index.html";
-
 });
 
 // ======================================
@@ -42,7 +43,7 @@ logoutBtn?.addEventListener("click", () => {
 const createBox = document.getElementById("createMissionBox");
 const dashboard = document.getElementById("dashboard");
 
-if (user.role === "commandement") {
+if (user && user.role === "commandement") {
 
     if (createBox) createBox.style.display = "block";
     if (dashboard) dashboard.style.display = "block";
@@ -50,76 +51,90 @@ if (user.role === "commandement") {
 } else {
 
     if (createBox) createBox.style.display = "none";
-
-    // Si tu veux que les membres ne voient pas le dashboard :
-    // if (dashboard) dashboard.style.display = "none";
+    if (dashboard) dashboard.style.display = "none";
 
 }
 
 // ======================================
-// CREATION MISSION
+// ETAT CENTRAL DES MISSIONS
+// (seule source de vérité, alimentée par
+// l'unique lecture Firebase de firebase.js)
 // ======================================
 
-const createBtn = document.getElementById("createBtn");
+let allMissions = [];
 
-createBtn?.addEventListener("click", () => {
+initCalendar((date) => {
+    renderMissionList(allMissions, date, user);
+});
 
-    const mission = {
+listenMissions((missions) => {
 
-        title: document.getElementById("mTitle").value.trim(),
+    allMissions = missions;
 
-        description: document.getElementById("mDesc").value.trim(),
+    setCalendarMissions(missions);
+    updateDashboard(missions);
 
-        start: document.getElementById("mStart").value,
+    const selected = getSelectedDate();
 
-        end: document.getElementById("mEnd").value,
-
-        location: document.getElementById("mLocation").value.trim(),
-
-        concerned: document.getElementById("mConcerned").value.trim()
-
-    };
-
-    if (
-        mission.title === "" ||
-        mission.start === "" ||
-        mission.end === ""
-    ) {
-
-        alert("Titre, date de début et date de fin obligatoires.");
-
-        return;
-
+    if (selected) {
+        renderMissionList(allMissions, selected, user);
     }
-
-    if (typeof window.createMission === "function") {
-
-        window.createMission(mission);
-
-    }
-
-    // ===========================
-    // RESET
-    // ===========================
-
-    document.getElementById("mTitle").value = "";
-    document.getElementById("mDesc").value = "";
-    document.getElementById("mStart").value = "";
-    document.getElementById("mEnd").value = "";
-    document.getElementById("mLocation").value = "";
-    document.getElementById("mConcerned").value = "";
 
 });
 
 // ======================================
-// CALENDRIER
+// CREATION MISSION (commandement uniquement,
+// mais le bouton n'existe même pas pour les
+// membres puisque createBox est masqué)
 // ======================================
 
-// Le calendrier s'initialise tout seul dans calendar.js.
-// Rien à faire ici.
+const createBtn = document.getElementById("createBtn");
 
-// ======================================
-// FIN
-// ======================================
+createBtn?.addEventListener("click", async () => {
 
-console.log("✅ BLEU4 APP OK");
+    const mission = {
+        title: document.getElementById("mTitle").value.trim(),
+        description: document.getElementById("mDesc").value.trim(),
+        start: document.getElementById("mStart").value,
+        end: document.getElementById("mEnd").value,
+        location: document.getElementById("mLocation").value.trim(),
+        concerned: document.getElementById("mConcerned").value.trim() || "Tous"
+    };
+
+    if (!mission.title || !mission.start || !mission.end) {
+        alert("Titre, date de début et date de fin obligatoires.");
+        return;
+    }
+
+    if (mission.end < mission.start) {
+        alert("La date de fin ne peut pas être avant la date de début.");
+        return;
+    }
+
+    createBtn.disabled = true;
+
+    try {
+
+        await createMissionInDb(mission);
+
+        document.getElementById("mTitle").value = "";
+        document.getElementById("mDesc").value = "";
+        document.getElementById("mStart").value = "";
+        document.getElementById("mEnd").value = "";
+        document.getElementById("mLocation").value = "";
+        document.getElementById("mConcerned").value = "";
+
+    } catch (err) {
+
+        console.error(err);
+        alert("Erreur lors de la création de la mission. Vérifie ta configuration Firebase.");
+
+    } finally {
+
+        createBtn.disabled = false;
+
+    }
+
+});
+
+console.log("✅ BLEU4 v2 chargé");
