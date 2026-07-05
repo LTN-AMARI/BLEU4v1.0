@@ -1,79 +1,125 @@
+// ======================================
+// BLEU4 v2 - APP
+// ======================================
+
 const user = JSON.parse(localStorage.getItem("BLEU4_USER"));
 
-if (!user) window.location.href = "index.html";
+// ======================================
+// SECURITE
+// ======================================
 
-document.getElementById("userInfo").innerText =
-  `${user.login} - ${user.role}`;
-
-document.getElementById("logoutBtn").onclick = () => {
-  localStorage.removeItem("BLEU4_USER");
-  location.reload();
-};
-
-// HIDE CREATE FOR MEMBERS
-if (user.role !== "commandement") {
-  document.getElementById("createMissionBox").style.display = "none";
+if (!user) {
+    window.location.href = "index.html";
 }
 
-// CREATE BUTTON
-document.getElementById("createBtn").onclick = () => {
+// ======================================
+// HEADER
+// ======================================
 
-  const m = {
-    title: document.getElementById("mTitle").value.trim(),
-    description: document.getElementById("mDesc").value.trim(),
-    start: document.getElementById("mStart").value,
-    end: document.getElementById("mEnd").value,
-    location: document.getElementById("mLocation").value.trim()
-  };
+const userInfo = document.getElementById("userInfo");
+const logoutBtn = document.getElementById("logoutBtn");
 
-  if (!m.title || !m.start || !m.end) {
-    alert("Remplir tout");
-    return;
-  }
+if (userInfo) {
+    userInfo.textContent = `${user.login} — ${user.role.toUpperCase()}`;
+}
 
-  window.createMission(m);
-};
+// ======================================
+// DECONNEXION
+// ======================================
 
-// CALENDAR SIMPLE
-let month = new Date().getMonth();
-let year = new Date().getFullYear();
+logoutBtn?.addEventListener("click", () => {
 
-document.getElementById("prevMonth").onclick = () => {
-  month--;
-  if (month < 0) { month = 11; year--; }
-  renderCalendar(window.missions || {});
-};
+    localStorage.removeItem("BLEU4_USER");
 
-document.getElementById("nextMonth").onclick = () => {
-  month++;
-  if (month > 11) { month = 0; year++; }
-  renderCalendar(window.missions || {});
-};
+    window.location.href = "index.html";
 
-window.renderCalendar = function (missions = {}) {
+});
 
-  const cal = document.getElementById("calendar");
-  const title = document.getElementById("monthTitle");
+// ======================================
+// AFFICHAGE SELON LE ROLE
+// ======================================
 
-  title.innerText = `${month + 1}/${year}`;
+const createBox = document.getElementById("createMissionBox");
+const dashboard = document.getElementById("dashboard");
 
-  cal.innerHTML = "";
+if (user.role === "commandement") {
 
-  const days = new Date(year, month + 1, 0).getDate();
+    if (createBox) createBox.style.display = "block";
+    if (dashboard) dashboard.style.display = "block";
 
-  for (let d = 1; d <= days; d++) {
+} else {
 
-    const date = `${year}-${String(month + 1).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
+    if (createBox) createBox.style.display = "none";
 
-    const div = document.createElement("div");
-    div.innerText = d;
+    // Si tu veux que les membres ne voient pas le dashboard :
+    // if (dashboard) dashboard.style.display = "none";
 
-    const has = Object.values(missions).some(m =>
-      date >= m.start && date <= m.end
-    );
+}
 
-    if (has) div.style.background = "yellow";
+// ======================================
+// CREATION MISSION
+// ======================================
 
-    cal.appendChild(div);
-  }
-};
+const createBtn = document.getElementById("createBtn");
+
+createBtn?.addEventListener("click", () => {
+
+    const mission = {
+
+        title: document.getElementById("mTitle").value.trim(),
+
+        description: document.getElementById("mDesc").value.trim(),
+
+        start: document.getElementById("mStart").value,
+
+        end: document.getElementById("mEnd").value,
+
+        location: document.getElementById("mLocation").value.trim(),
+
+        concerned: document.getElementById("mConcerned").value.trim()
+
+    };
+
+    if (
+        mission.title === "" ||
+        mission.start === "" ||
+        mission.end === ""
+    ) {
+
+        alert("Titre, date de début et date de fin obligatoires.");
+
+        return;
+
+    }
+
+    if (typeof window.createMission === "function") {
+
+        window.createMission(mission);
+
+    }
+
+    // ===========================
+    // RESET
+    // ===========================
+
+    document.getElementById("mTitle").value = "";
+    document.getElementById("mDesc").value = "";
+    document.getElementById("mStart").value = "";
+    document.getElementById("mEnd").value = "";
+    document.getElementById("mLocation").value = "";
+    document.getElementById("mConcerned").value = "";
+
+});
+
+// ======================================
+// CALENDRIER
+// ======================================
+
+// Le calendrier s'initialise tout seul dans calendar.js.
+// Rien à faire ici.
+
+// ======================================
+// FIN
+// ======================================
+
+console.log("✅ BLEU4 APP OK");
