@@ -1,28 +1,48 @@
+// ======================================
+// BLEU4 v2 - AUTH (page de connexion)
+// ======================================
 
-// =======================
-// AUTH BLEU4 V2
-// =======================
-
-// récup inputs
 const loginInput = document.getElementById("login");
 const roleSelect = document.getElementById("role");
 const passwordBox = document.getElementById("passwordBox");
 const passwordInput = document.getElementById("password");
 const btnLogin = document.getElementById("btnLogin");
 
-// afficher mot de passe seulement pour commandement
+// ⚠️ Sécurité "front-end only" : suffisant pour filtrer
+// l'accès dans une petite équipe, mais pas un vrai rempart.
+// Si besoin d'une vraie sécurité, il faudra passer par
+// Firebase Auth plus tard.
+const COMMANDEMENT_CODE = "BLEU4ADMIN";
+
+// ======================================
+// Si déjà connecté, redirection directe
+// ======================================
+
+const existingUser = JSON.parse(localStorage.getItem("BLEU4_USER") || "null");
+
+if (existingUser) {
+    window.location.href = "app.html";
+}
+
+// ======================================
+// Afficher le champ mot de passe
+// uniquement pour le commandement
+// ======================================
+
 roleSelect.addEventListener("change", () => {
-    if (roleSelect.value === "commandement") {
-        passwordBox.style.display = "block";
-    } else {
-        passwordBox.style.display = "none";
-    }
+
+    passwordBox.style.display =
+        roleSelect.value === "commandement" ? "block" : "none";
+
 });
 
-// login
+// ======================================
+// Connexion
+// ======================================
+
 btnLogin.addEventListener("click", () => {
 
-    const login = loginInput.value.trim();
+    const login = loginInput.value.trim().toUpperCase();
     const role = roleSelect.value;
     const password = passwordInput.value;
 
@@ -31,22 +51,24 @@ btnLogin.addEventListener("click", () => {
         return;
     }
 
-    // sécurité simple commandement
-    if (role === "commandement") {
-        if (password !== "BLEU4ADMIN") {
-            alert("Code commandement incorrect");
-            return;
-        }
+    if (role === "commandement" && password !== COMMANDEMENT_CODE) {
+        alert("Code commandement incorrect");
+        return;
     }
 
-    // sauvegarde session
-    const user = {
-        login,
-        role
-    };
+    const user = { login, role };
 
     localStorage.setItem("BLEU4_USER", JSON.stringify(user));
 
-    // redirect
     window.location.href = "app.html";
+
+});
+
+// Permet aussi de valider avec la touche Entrée
+passwordInput.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") btnLogin.click();
+});
+
+loginInput.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") btnLogin.click();
 });
