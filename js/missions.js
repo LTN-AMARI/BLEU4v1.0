@@ -9,6 +9,7 @@ const missionsDiv = document.getElementById("missions");
 
 // LOAD
 onValue(ref(db, "missions"), (snap) => {
+
     missions = snap.val() || {};
 
     if (window.renderCalendar) {
@@ -16,6 +17,9 @@ onValue(ref(db, "missions"), (snap) => {
     }
 
     render();
+
+    renderDashboard();
+
 });
 
 // CREATE
@@ -54,42 +58,6 @@ window.participate = function (id, status) {
 window.deleteMission = function (id) {
     remove(ref(db, "missions/" + id));
 };
-
-// RENDER
-function render() {
-
-    if (!missionsDiv) return;
-
-    missionsDiv.innerHTML = "";
-
-    Object.values(missions || {}).forEach(m => {
-
-        const p = m.participants || {};
-
-        const present = Object.entries(p).filter(([_,v]) => v === "present");
-        const absent = Object.entries(p).filter(([_,v]) => v === "absent");
-
-        const div = document.createElement("div");
-
-        div.innerHTML = `
-            <h3>${m.title}</h3>
-            <p>${m.start} → ${m.end}</p>
-
-            <button onclick="participate('${m.id}','present')">✔</button>
-            <button onclick="participate('${m.id}','absent')">❌</button>
-
-            <div>🟢 ${present.map(x => x[0]).join(", ") || "Aucun"}</div>
-            <div>🔴 ${absent.map(x => x[0]).join(", ") || "Aucun"}</div>
-
-            ${user.role === "commandement"
-                ? `<button onclick="deleteMission('${m.id}')">Supprimer</button>`
-                : ""
-            }
-        `;
-
-        missionsDiv.appendChild(div);
-    });
-}
 
 function renderDashboard() {
 
