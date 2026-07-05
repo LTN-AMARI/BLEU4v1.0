@@ -31,6 +31,16 @@ body{
     max-width:420px;
 }
 
+.logo-block{
+    text-align:center;
+    margin-bottom:20px;
+}
+
+.logo-block h1{
+    color:#0B1F3A;
+    font-size:32px;
+}
+
 .logo{
     width:120px;
     display:block;
@@ -203,6 +213,16 @@ button:hover{
 
 }
 
+#btnLogin{
+
+    width:100%;
+
+    background:#0B1F3A;
+
+    color:white;
+
+}
+
 .btn-present{
 
     background:#2e7d32;
@@ -334,6 +354,14 @@ button:hover{
 
 }
 
+.day.empty{
+
+    background:transparent;
+    border:none;
+    cursor:default;
+
+}
+
 .day:hover{
 
     background:#f0f5ff;
@@ -343,6 +371,12 @@ button:hover{
 .today{
 
     border:2px solid #1565c0;
+
+}
+
+.selected{
+
+    background:#dbe8ff;
 
 }
 
