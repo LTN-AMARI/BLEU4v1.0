@@ -90,3 +90,34 @@ function render() {
         missionsDiv.appendChild(div);
     });
 }
+
+function renderDashboard() {
+
+    let total = Object.keys(missions).length;
+
+    let present = 0;
+    let absent = 0;
+    let pending = 0;
+
+    Object.values(missions).forEach(m => {
+
+        const p = m.participants || {};
+
+        Object.values(p).forEach(status => {
+
+            if (status === "present") present++;
+
+            else if (status === "absent") absent++;
+
+        });
+
+    });
+
+    pending = 0;
+
+    document.getElementById("statsTotal").innerText = total;
+    document.getElementById("statsPresent").innerText = present;
+    document.getElementById("statsAbsent").innerText = absent;
+    document.getElementById("statsPending").innerText = pending;
+
+}
