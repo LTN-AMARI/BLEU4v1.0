@@ -37,6 +37,10 @@ export function renderMissionList(missions, date, user) {
         const responses = mission.responses || {};
         const myStatus = responses[user.login];
 
+        // le commandement peut toujours agir/voir,
+        // même s'il n'est pas nommément "concerné"
+        const concernedOk = user.role === "commandement" || isUserConcerned(mission, user);
+
         const div = document.createElement("div");
         div.className = "mission";
 
@@ -46,6 +50,7 @@ export function renderMissionList(missions, date, user) {
             <p><strong>Lieu :</strong> ${escapeHtml(mission.location || "—")}</p>
             <p><strong>Concernés :</strong> ${escapeHtml(mission.concerned || "Tous")}</p>
             <p><strong>Période :</strong> ${mission.start} → ${mission.end}</p>
+            ${!concernedOk ? `<p class="not-concerned">⚠ Vous n'êtes pas concerné par cette mission</p>` : ""}
         `;
 
         // ===========================
@@ -59,6 +64,12 @@ export function renderMissionList(missions, date, user) {
         presentBtn.className = "btn-present";
         presentBtn.innerText = myStatus === "present" ? "✔ Présent" : "Présent";
         presentBtn.addEventListener("click", async () => {
+
+            if (!concernedOk) {
+                alert("Non concerné par cette mission.");
+                return;
+            }
+
             presentBtn.disabled = true;
             try {
                 await setResponse(mission.id, user.login, "present");
@@ -74,6 +85,12 @@ export function renderMissionList(missions, date, user) {
         absentBtn.className = "btn-absent";
         absentBtn.innerText = myStatus === "absent" ? "✔ Indisponible" : "Indisponible";
         absentBtn.addEventListener("click", async () => {
+
+            if (!concernedOk) {
+                alert("Non concerné par cette mission.");
+                return;
+            }
+
             absentBtn.disabled = true;
             try {
                 await setResponse(mission.id, user.login, "absent");
@@ -143,6 +160,30 @@ export function renderMissionList(missions, date, user) {
         container.appendChild(div);
 
     });
+
+}
+
+// ======================================
+// Détermine si l'utilisateur fait partie
+// des personnes concernées par la mission.
+// "Tous" (ou champ vide) = tout le monde.
+// Sinon, liste de noms séparés par virgule.
+// ======================================
+
+function isUserConcerned(mission, user) {
+
+    const concerned = (mission.concerned || "Tous").trim();
+
+    if (!concerned || concerned.toLowerCase() === "tous") {
+        return true;
+    }
+
+    const list = concerned
+        .split(",")
+        .map((s) => s.trim().toUpperCase())
+        .filter(Boolean);
+
+    return list.includes(user.login.toUpperCase());
 
 }
 
