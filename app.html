@@ -73,6 +73,18 @@
 
         </div>
 
+        <div class="dashboard-mission-select">
+
+            <label>Voir le détail d'une mission</label>
+
+            <select id="dashboardMissionSelect">
+                <option value="">-- Choisir une mission --</option>
+            </select>
+
+        </div>
+
+        <div id="dashboardMissionDetail"></div>
+
     </section>
 
     <!-- ===================== -->
@@ -124,7 +136,7 @@
         <input
             id="mConcerned"
             type="text"
-            placeholder="Concernés (Tous / CPL / SDT...)">
+            placeholder="Concernés : Tous, ou noms séparés par virgule (ex: SDT PINGOUIN, CPL DUPONT)">
 
         <button id="createBtn">
             Créer la mission
