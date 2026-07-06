@@ -102,3 +102,13 @@ export async function deleteMissionInDb(missionId) {
     await remove(missionRef);
 
 }
+
+export async function updateMissionInDb(missionId, fields) {
+
+    // ne touche que les champs fournis (titre, dates, lieu...),
+    // les réponses des membres ne sont jamais écrasées ici
+    const missionRef = ref(db, `missions/${missionId}`);
+
+    await update(missionRef, fields);
+
+}
