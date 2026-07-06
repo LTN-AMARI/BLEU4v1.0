@@ -68,7 +68,7 @@ export function listenMissions(callback) {
 
 export async function createMissionInDb(mission) {
 
-    return push(missionsRef, {
+    const data = {
         title: mission.title,
         description: mission.description || "",
         start: mission.start,
@@ -77,7 +77,15 @@ export async function createMissionInDb(mission) {
         concerned: mission.concerned || "Tous",
         createdBy: mission.createdBy || "",
         responses: {}
-    });
+    };
+
+    // le PATRACDR est optionnel : on ne l'ajoute que
+    // si le commandement a coché la case et rempli des infos
+    if (mission.patracdr) {
+        data.patracdr = mission.patracdr;
+    }
+
+    return push(missionsRef, data);
 
 }
 
