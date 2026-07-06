@@ -153,6 +153,11 @@ function renderMissionCard(mission, user) {
         actions.appendChild(absentBtn);
         div.appendChild(actions);
 
+        // liste en lecture seule : les membres voient qui a répondu,
+        // mais ne peuvent pas modifier les réponses des autres
+        const readOnlyDetail = renderResponseLists(mission, responses, false);
+        div.appendChild(readOnlyDetail);
+
     } else {
 
         // ===========================
@@ -189,7 +194,7 @@ function renderMissionCard(mission, user) {
         actions.appendChild(deleteBtn);
         div.appendChild(actions);
 
-        const detail = renderResponseLists(mission, responses);
+        const detail = renderResponseLists(mission, responses, true);
         detail.classList.add("mission-detail-toggle", "hidden");
         div.appendChild(detail);
 
@@ -205,11 +210,12 @@ function renderMissionCard(mission, user) {
 
 // ======================================
 // LISTES VERTICALES PRESENTS / ABSENTS
-// (commandement) — cliquer sur le bouton
-// d'une personne bascule son statut réel.
+// - editable = true  (commandement) : bouton pour
+//   corriger le statut réel de chaque personne.
+// - editable = false (membre) : lecture seule.
 // ======================================
 
-function renderResponseLists(mission, responses) {
+function renderResponseLists(mission, responses, editable) {
 
     const wrap = document.createElement("div");
     wrap.className = "list";
@@ -248,7 +254,7 @@ function renderResponseLists(mission, responses) {
         presentBlock.appendChild(empty);
     } else {
         present.forEach(([login]) => {
-            presentBlock.appendChild(buildResponseRow(mission, login, "present"));
+            presentBlock.appendChild(buildResponseRow(mission, login, "present", editable));
         });
     }
 
@@ -271,7 +277,7 @@ function renderResponseLists(mission, responses) {
         absentBlock.appendChild(empty);
     } else {
         absent.forEach(([login]) => {
-            absentBlock.appendChild(buildResponseRow(mission, login, "absent"));
+            absentBlock.appendChild(buildResponseRow(mission, login, "absent", editable));
         });
     }
 
@@ -282,7 +288,7 @@ function renderResponseLists(mission, responses) {
 
 }
 
-function buildResponseRow(mission, login, currentStatus) {
+function buildResponseRow(mission, login, currentStatus, editable) {
 
     const row = document.createElement("div");
     row.className = "response-row";
@@ -291,28 +297,33 @@ function buildResponseRow(mission, login, currentStatus) {
     name.className = "response-name";
     name.innerText = login;
 
-    const otherStatus = currentStatus === "present" ? "absent" : "present";
-
-    const switchBtn = document.createElement("button");
-    switchBtn.className = "small btn-switch";
-    switchBtn.innerText =
-        currentStatus === "present" ? "→ Absent" : "→ Présent";
-
-    switchBtn.addEventListener("click", async (e) => {
-        e.stopPropagation();
-        switchBtn.disabled = true;
-        try {
-            await setResponse(mission.id, login, otherStatus);
-        } catch (err) {
-            console.error(err);
-            alert("Erreur lors de la mise à jour.");
-        } finally {
-            switchBtn.disabled = false;
-        }
-    });
-
     row.appendChild(name);
-    row.appendChild(switchBtn);
+
+    if (editable) {
+
+        const otherStatus = currentStatus === "present" ? "absent" : "present";
+
+        const switchBtn = document.createElement("button");
+        switchBtn.className = "small btn-switch";
+        switchBtn.innerText =
+            currentStatus === "present" ? "→ Absent" : "→ Présent";
+
+        switchBtn.addEventListener("click", async (e) => {
+            e.stopPropagation();
+            switchBtn.disabled = true;
+            try {
+                await setResponse(mission.id, login, otherStatus);
+            } catch (err) {
+                console.error(err);
+                alert("Erreur lors de la mise à jour.");
+            } finally {
+                switchBtn.disabled = false;
+            }
+        });
+
+        row.appendChild(switchBtn);
+
+    }
 
     return row;
 
