@@ -6,8 +6,8 @@
 //  - renderAllMissions  : liste complète (gestion, commandement)
 // ======================================
 
-import { setResponse, deleteMissionInDb } from "./firebase.js";
-import { isoToFr } from "./dateUtils.js";
+import { setResponse, deleteMissionInDb, updateMissionInDb } from "./firebase.js";
+import { isoToFr, frToIso, autoFormatDateInput } from "./dateUtils.js";
 
 // ======================================
 // VUE "JOUR SELECTIONNE" (calendrier)
@@ -170,6 +170,14 @@ function renderMissionCard(mission, user) {
 
         div.classList.add("clickable");
 
+        const modifyBtn = document.createElement("button");
+        modifyBtn.className = "btn-switch";
+        modifyBtn.innerText = "Modifier";
+        modifyBtn.addEventListener("click", (e) => {
+            e.stopPropagation();
+            editForm.classList.toggle("hidden");
+        });
+
         const deleteBtn = document.createElement("button");
         deleteBtn.className = "btn-delete";
         deleteBtn.innerText = "Supprimer";
@@ -191,8 +199,13 @@ function renderMissionCard(mission, user) {
 
         });
 
+        actions.appendChild(modifyBtn);
         actions.appendChild(deleteBtn);
         div.appendChild(actions);
+
+        const editForm = buildEditForm(mission);
+        editForm.classList.add("mission-edit-form", "hidden");
+        div.appendChild(editForm);
 
         const detail = renderResponseLists(mission, responses, true);
         detail.classList.add("mission-detail-toggle", "hidden");
@@ -205,6 +218,125 @@ function renderMissionCard(mission, user) {
     }
 
     return div;
+
+}
+
+// ======================================
+// FORMULAIRE D'EDITION (commandement)
+// Modifie titre, description, dates, lieu,
+// concernés — ne touche jamais aux réponses.
+// ======================================
+
+function buildEditForm(mission) {
+
+    const form = document.createElement("div");
+    form.className = "edit-form";
+
+    form.innerHTML = `
+        <label>Titre</label>
+        <input type="text" class="edit-title" value="${escapeAttr(mission.title)}">
+
+        <label>Description</label>
+        <textarea class="edit-desc">${escapeHtml(mission.description || "")}</textarea>
+
+        <div class="row">
+            <div>
+                <label>Date début</label>
+                <input type="text" class="edit-start" inputmode="numeric" maxlength="10"
+                    placeholder="JJ/MM/AAAA" value="${isoToFr(mission.start)}">
+            </div>
+            <div>
+                <label>Date fin</label>
+                <input type="text" class="edit-end" inputmode="numeric" maxlength="10"
+                    placeholder="JJ/MM/AAAA" value="${isoToFr(mission.end)}">
+            </div>
+        </div>
+
+        <label>Lieu</label>
+        <input type="text" class="edit-location" value="${escapeAttr(mission.location || "")}">
+
+        <label>Concernés</label>
+        <input type="text" class="edit-concerned" value="${escapeAttr(mission.concerned || "Tous")}">
+
+        <div class="actions"></div>
+    `;
+
+    // empêche tout clic dans le formulaire de fermer/ouvrir
+    // le détail des réponses de la carte parente
+    form.addEventListener("click", (e) => e.stopPropagation());
+
+    const startInput = form.querySelector(".edit-start");
+    const endInput = form.querySelector(".edit-end");
+
+    autoFormatDateInput(startInput);
+    autoFormatDateInput(endInput);
+
+    const actionsWrap = form.querySelector(".actions");
+
+    const saveBtn = document.createElement("button");
+    saveBtn.className = "btn-present";
+    saveBtn.innerText = "Enregistrer";
+
+    const cancelBtn = document.createElement("button");
+    cancelBtn.className = "btn-delete";
+    cancelBtn.innerText = "Annuler";
+    cancelBtn.addEventListener("click", () => {
+        form.classList.add("hidden");
+    });
+
+    saveBtn.addEventListener("click", async () => {
+
+        const title = form.querySelector(".edit-title").value.trim();
+        const description = form.querySelector(".edit-desc").value.trim();
+        const location = form.querySelector(".edit-location").value.trim();
+        const concerned = form.querySelector(".edit-concerned").value.trim() || "Tous";
+
+        const startIso = frToIso(startInput.value);
+        const endIso = frToIso(endInput.value);
+
+        if (!title) {
+            alert("Le titre est obligatoire.");
+            return;
+        }
+
+        if (!startIso || !endIso) {
+            alert("Les dates doivent être valides et au format JJ/MM/AAAA.");
+            return;
+        }
+
+        if (endIso < startIso) {
+            alert("La date de fin ne peut pas être avant la date de début.");
+            return;
+        }
+
+        saveBtn.disabled = true;
+
+        try {
+
+            await updateMissionInDb(mission.id, {
+                title,
+                description,
+                location,
+                concerned,
+                start: startIso,
+                end: endIso
+            });
+
+            form.classList.add("hidden");
+
+        } catch (err) {
+            console.error(err);
+            alert("Erreur lors de la modification de la mission.");
+        } finally {
+            saveBtn.disabled = false;
+        }
+
+    });
+
+    actionsWrap.appendChild(saveBtn);
+    actionsWrap.appendChild(cancelBtn);
+
+    return form;
 
 }
 
@@ -361,4 +493,12 @@ function escapeHtml(str) {
     const div = document.createElement("div");
     div.textContent = str;
     return div.innerHTML;
+}
+
+function escapeAttr(str) {
+    return String(str)
+        .replace(/&/g, "&amp;")
+        .replace(/"/g, "&quot;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;");
 }
