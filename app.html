@@ -127,6 +127,39 @@
             type="text"
             placeholder="Concernés : Tous, ou noms séparés par virgule (ex: SDT PINGOUIN, CPL DUPONT)">
 
+        <label class="checkbox-label">
+            <input type="checkbox" id="patracdrToggle">
+            Ajouter un PATRACDR à cette mission
+        </label>
+
+        <div id="patracdrFields" class="patracdr-fields hidden">
+
+            <label>Personnel</label>
+            <input type="text" id="pPersonnel" placeholder="Effectifs, qui participe...">
+
+            <label>Armement</label>
+            <input type="text" id="pArmement" placeholder="Armement, matériel...">
+
+            <label>Tenue</label>
+            <input type="text" id="pTenue" placeholder="Tenue, équipement...">
+
+            <label>Radio</label>
+            <input type="text" id="pRadio" placeholder="Fréquences, moyens de communication...">
+
+            <label>Alimentation</label>
+            <input type="text" id="pAlimentation" placeholder="Repas, eau, ravitaillement...">
+
+            <label>Camouflage</label>
+            <input type="text" id="pCamouflage" placeholder="Consignes de camouflage...">
+
+            <label>Divers</label>
+            <input type="text" id="pDivers" placeholder="Autres informations...">
+
+            <label>Rassemblement</label>
+            <input type="text" id="pRassemblement" placeholder="Lieu et heure de rassemblement...">
+
+        </div>
+
         <button id="createBtn">
             Créer la mission
         </button>
