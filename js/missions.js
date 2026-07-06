@@ -101,6 +101,30 @@ function renderMissionCard(mission, user) {
     const actions = document.createElement("div");
     actions.className = "actions";
 
+    // ===========================
+    // PATRACDR (si présent sur la mission)
+    // visible par tous, replié par défaut
+    // ===========================
+
+    if (mission.patracdr) {
+
+        const patracdrToggleBtn = document.createElement("button");
+        patracdrToggleBtn.className = "small btn-switch patracdr-toggle-btn";
+        patracdrToggleBtn.innerText = "Voir PATRACDR";
+
+        const patracdrBlock = buildPatracdrBlock(mission.patracdr);
+        patracdrBlock.classList.add("hidden");
+
+        patracdrToggleBtn.addEventListener("click", (e) => {
+            e.stopPropagation();
+            patracdrBlock.classList.toggle("hidden");
+        });
+
+        div.appendChild(patracdrToggleBtn);
+        div.appendChild(patracdrBlock);
+
+    }
+
     if (user.role === "membre") {
 
         // ===========================
@@ -222,6 +246,42 @@ function renderMissionCard(mission, user) {
 }
 
 // ======================================
+// BLOC PATRACDR (affichage)
+// Personnel, Armement, Tenue, Radio,
+// Alimentation, Camouflage, Divers, Rassemblement
+// ======================================
+
+function buildPatracdrBlock(patracdr) {
+
+    const block = document.createElement("div");
+    block.className = "patracdr-block";
+
+    // empêche le clic dans le bloc d'ouvrir/fermer
+    // le détail des réponses de la carte parente
+    block.addEventListener("click", (e) => e.stopPropagation());
+
+    const fields = [
+        ["Personnel", patracdr.personnel],
+        ["Armement", patracdr.armement],
+        ["Tenue", patracdr.tenue],
+        ["Radio", patracdr.radio],
+        ["Alimentation", patracdr.alimentation],
+        ["Camouflage", patracdr.camouflage],
+        ["Divers", patracdr.divers],
+        ["Rassemblement", patracdr.rassemblement]
+    ];
+
+    block.innerHTML =
+        `<h4 class="patracdr-title">PATRACDR</h4>` +
+        fields
+            .map(([label, value]) => `<p><strong>${label} :</strong> ${escapeHtml(value || "—")}</p>`)
+            .join("");
+
+    return block;
+
+}
+
+// ======================================
 // FORMULAIRE D'EDITION (commandement)
 // Modifie titre, description, dates, lieu,
 // concernés — ne touche jamais aux réponses.
@@ -258,12 +318,52 @@ function buildEditForm(mission) {
         <label>Concernés</label>
         <input type="text" class="edit-concerned" value="${escapeAttr(mission.concerned || "Tous")}">
 
+        <label class="checkbox-label">
+            <input type="checkbox" class="edit-patracdr-toggle" ${mission.patracdr ? "checked" : ""}>
+            Inclure un PATRACDR
+        </label>
+
+        <div class="edit-patracdr-fields patracdr-fields ${mission.patracdr ? "" : "hidden"}">
+
+            <label>Personnel</label>
+            <input type="text" class="edit-p-personnel" value="${escapeAttr(mission.patracdr?.personnel || "")}">
+
+            <label>Armement</label>
+            <input type="text" class="edit-p-armement" value="${escapeAttr(mission.patracdr?.armement || "")}">
+
+            <label>Tenue</label>
+            <input type="text" class="edit-p-tenue" value="${escapeAttr(mission.patracdr?.tenue || "")}">
+
+            <label>Radio</label>
+            <input type="text" class="edit-p-radio" value="${escapeAttr(mission.patracdr?.radio || "")}">
+
+            <label>Alimentation</label>
+            <input type="text" class="edit-p-alimentation" value="${escapeAttr(mission.patracdr?.alimentation || "")}">
+
+            <label>Camouflage</label>
+            <input type="text" class="edit-p-camouflage" value="${escapeAttr(mission.patracdr?.camouflage || "")}">
+
+            <label>Divers</label>
+            <input type="text" class="edit-p-divers" value="${escapeAttr(mission.patracdr?.divers || "")}">
+
+            <label>Rassemblement</label>
+            <input type="text" class="edit-p-rassemblement" value="${escapeAttr(mission.patracdr?.rassemblement || "")}">
+
+        </div>
+
         <div class="actions"></div>
     `;
 
     // empêche tout clic dans le formulaire de fermer/ouvrir
     // le détail des réponses de la carte parente
     form.addEventListener("click", (e) => e.stopPropagation());
+
+    const patracdrToggle = form.querySelector(".edit-patracdr-toggle");
+    const patracdrFieldsWrap = form.querySelector(".edit-patracdr-fields");
+
+    patracdrToggle.addEventListener("change", () => {
+        patracdrFieldsWrap.classList.toggle("hidden", !patracdrToggle.checked);
+    });
 
     const startInput = form.querySelector(".edit-start");
     const endInput = form.querySelector(".edit-end");
@@ -313,14 +413,36 @@ function buildEditForm(mission) {
 
         try {
 
-            await updateMissionInDb(mission.id, {
+            const fields = {
                 title,
                 description,
                 location,
                 concerned,
                 start: startIso,
                 end: endIso
-            });
+            };
+
+            if (patracdrToggle.checked) {
+
+                fields.patracdr = {
+                    personnel: form.querySelector(".edit-p-personnel").value.trim(),
+                    armement: form.querySelector(".edit-p-armement").value.trim(),
+                    tenue: form.querySelector(".edit-p-tenue").value.trim(),
+                    radio: form.querySelector(".edit-p-radio").value.trim(),
+                    alimentation: form.querySelector(".edit-p-alimentation").value.trim(),
+                    camouflage: form.querySelector(".edit-p-camouflage").value.trim(),
+                    divers: form.querySelector(".edit-p-divers").value.trim(),
+                    rassemblement: form.querySelector(".edit-p-rassemblement").value.trim()
+                };
+
+            } else {
+
+                // décoché : on retire le PATRACDR existant de la mission
+                fields.patracdr = null;
+
+            }
+
+            await updateMissionInDb(mission.id, fields);
 
             form.classList.add("hidden");
 
