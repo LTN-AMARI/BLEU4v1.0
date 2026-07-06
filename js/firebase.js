@@ -75,6 +75,7 @@ export async function createMissionInDb(mission) {
         end: mission.end,
         location: mission.location || "",
         concerned: mission.concerned || "Tous",
+        createdBy: mission.createdBy || "",
         responses: {}
     });
 
