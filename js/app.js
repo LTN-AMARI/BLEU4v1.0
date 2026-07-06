@@ -8,7 +8,13 @@
 import { listenMissions, createMissionInDb } from "./firebase.js";
 import { initCalendar, setCalendarMissions, getSelectedDate } from "./calendar.js";
 import { renderMissionList, renderAllMissions } from "./missions.js";
-import { frToIso, autoFormatDateInput } from "./dateUtils.js";
+import { frToIso, autoFormatDateInput, isoToFr } from "./dateUtils.js";
+import {
+    playAlertSound,
+    showMissionBanner,
+    requestNotificationPermission,
+    showSystemNotification
+} from "./notify.js";
 
 // ======================================
 // ECRAN DE DEMARRAGE (SPLASH)
@@ -71,6 +77,10 @@ logoutBtn?.addEventListener("click", () => {
     window.location.href = "index.html";
 });
 
+// autorise (si possible) les notifications système —
+// sans effet si le navigateur/l'appareil ne les supporte pas
+requestNotificationPermission();
+
 // ======================================
 // AFFICHAGE SELON LE ROLE
 // ======================================
@@ -98,6 +108,15 @@ if (user && user.role === "commandement") {
 
 let allMissions = [];
 
+// suivi des missions déjà vues, pour ne notifier
+// que les VRAIES nouveautés (pas celles déjà existantes
+// au premier chargement de la page)
+let knownMissionIds = null;
+
+// suivi des réponses (présent/absent) par mission,
+// pour notifier le COMMANDEMENT quand un membre répond
+let knownResponses = null;
+
 initCalendar((date) => {
     renderMissionList(allMissions, date, user);
 });
@@ -116,6 +135,90 @@ listenMissions((missions) => {
 
     if (selected) {
         renderMissionList(allMissions, selected, user);
+    }
+
+    // ===========================
+    // DETECTION NOUVELLE MISSION
+    // (alerte tout le monde, sauf le créateur)
+    // ===========================
+
+    const currentIds = new Set(missions.map((m) => m.id));
+
+    if (knownMissionIds === null) {
+
+        // premier chargement : on mémorise sans alerter,
+        // sinon toutes les missions existantes déclencheraient
+        // une alerte à l'ouverture de l'appli
+        knownMissionIds = currentIds;
+
+    } else {
+
+        const newOnes = missions.filter((m) => !knownMissionIds.has(m.id));
+
+        newOnes.forEach((mission) => {
+
+            // la personne qui vient de créer la mission
+            // ne reçoit pas sa propre alerte
+            if (user && mission.createdBy === user.login) return;
+
+            const message = `Nouvelle mission du ${isoToFr(mission.start)}, valide rapidement ta présence`;
+
+            playAlertSound();
+            showMissionBanner(message);
+            showSystemNotification("Nouvelle mission BLEU4", message);
+
+        });
+
+        knownMissionIds = currentIds;
+
+    }
+
+    // ===========================
+    // DETECTION REPONSE MEMBRE
+    // (alerte uniquement le commandement)
+    // ===========================
+
+    const currentResponses = new Map();
+
+    missions.forEach((m) => {
+        currentResponses.set(m.id, { ...(m.responses || {}) });
+    });
+
+    if (knownResponses === null) {
+
+        // premier chargement : on mémorise sans alerter
+        knownResponses = currentResponses;
+
+    } else {
+
+        if (user && user.role === "commandement") {
+
+            missions.forEach((mission) => {
+
+                const prev = knownResponses.get(mission.id) || {};
+                const curr = currentResponses.get(mission.id) || {};
+
+                Object.entries(curr).forEach(([login, status]) => {
+
+                    if (prev[login] === status) return; // pas de changement
+
+                    const label = status === "present" ? "présent" : "absent";
+
+                    const message =
+                        `${login} s'est déclaré ${label} pour la mission "${mission.title}" (${isoToFr(mission.start)})`;
+
+                    playAlertSound();
+                    showMissionBanner(message);
+                    showSystemNotification("Réponse à une mission", message);
+
+                });
+
+            });
+
+        }
+
+        knownResponses = currentResponses;
+
     }
 
     hideSplashScreen();
@@ -147,7 +250,8 @@ createBtn?.addEventListener("click", async () => {
         start: startIso,
         end: endIso,
         location: document.getElementById("mLocation").value.trim(),
-        concerned: document.getElementById("mConcerned").value.trim() || "Tous"
+        concerned: document.getElementById("mConcerned").value.trim() || "Tous",
+        createdBy: user ? user.login : ""
     };
 
     if (!mission.title) {
