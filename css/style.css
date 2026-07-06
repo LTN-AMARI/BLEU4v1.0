@@ -549,6 +549,96 @@ button:hover{
 }
 
 /* ===========================
+   PATRACDR
+=========================== */
+
+.checkbox-label{
+
+    display:flex;
+
+    align-items:center;
+
+    gap:8px;
+
+    color:var(--text);
+
+    text-transform:none;
+
+    font-size:15px;
+
+    margin:10px 0 15px 0;
+
+    cursor:pointer;
+
+}
+
+.checkbox-label input[type="checkbox"]{
+
+    width:auto;
+
+    margin:0;
+
+    accent-color:var(--gold);
+
+}
+
+.patracdr-fields{
+
+    background:var(--panel-alt);
+
+    border:1px dashed var(--gold-dark);
+
+    border-radius:4px;
+
+    padding:12px;
+
+    margin-bottom:15px;
+
+}
+
+.patracdr-fields.hidden{
+
+    display:none;
+
+}
+
+.patracdr-toggle-btn{
+
+    margin-bottom:12px;
+
+}
+
+.patracdr-block{
+
+    margin-bottom:15px;
+
+    padding:12px;
+
+    background:var(--panel-alt);
+
+    border-left:3px solid var(--gold);
+
+    border-radius:4px;
+
+}
+
+.patracdr-block.hidden{
+
+    display:none;
+
+}
+
+.patracdr-title{
+
+    color:var(--gold);
+
+    text-transform:uppercase;
+
+    margin-bottom:8px;
+
+}
+
+/* ===========================
    MISSION - EDITION PRESENCE
    (carte cliquable pour le commandement)
 =========================== */
