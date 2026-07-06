@@ -105,6 +105,47 @@ h1, h2, h3, h4{
 }
 
 /* ===========================
+   BANNIERE ALERTE NOUVELLE MISSION
+=========================== */
+
+.mission-alert-banner{
+
+    position:fixed;
+
+    top:0;
+    left:0;
+    right:0;
+
+    background:var(--gold);
+    color:#000;
+
+    text-align:center;
+
+    font-weight:700;
+
+    text-transform:uppercase;
+
+    letter-spacing:.5px;
+
+    padding:14px 20px;
+
+    z-index:10000;
+
+    transform:translateY(-120%);
+
+    transition:transform .35s ease;
+
+    box-shadow:0 4px 15px rgba(0,0,0,.4);
+
+}
+
+.mission-alert-banner.visible{
+
+    transform:translateY(0);
+
+}
+
+/* ===========================
    ECRAN DE DEMARRAGE (SPLASH)
 =========================== */
 
