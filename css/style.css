@@ -522,6 +522,32 @@ button:hover{
 
 }
 
+.edit-form{
+
+    margin-top:15px;
+
+    padding:15px;
+
+    background:var(--panel);
+
+    border:1px solid var(--gold-dark);
+
+    border-radius:4px;
+
+}
+
+.edit-form.hidden{
+
+    display:none;
+
+}
+
+.edit-form .actions{
+
+    margin-top:5px;
+
+}
+
 /* ===========================
    MISSION - EDITION PRESENCE
    (carte cliquable pour le commandement)
