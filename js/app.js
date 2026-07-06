@@ -239,6 +239,49 @@ const mEndInput = document.getElementById("mEnd");
 autoFormatDateInput(mStartInput);
 autoFormatDateInput(mEndInput);
 
+// ===========================
+// PATRACDR (optionnel)
+// ===========================
+
+const patracdrToggle = document.getElementById("patracdrToggle");
+const patracdrFields = document.getElementById("patracdrFields");
+
+patracdrToggle?.addEventListener("change", () => {
+    patracdrFields.classList.toggle("hidden", !patracdrToggle.checked);
+});
+
+function collectPatracdrFromForm() {
+
+    if (!patracdrToggle || !patracdrToggle.checked) return null;
+
+    return {
+        personnel: document.getElementById("pPersonnel").value.trim(),
+        armement: document.getElementById("pArmement").value.trim(),
+        tenue: document.getElementById("pTenue").value.trim(),
+        radio: document.getElementById("pRadio").value.trim(),
+        alimentation: document.getElementById("pAlimentation").value.trim(),
+        camouflage: document.getElementById("pCamouflage").value.trim(),
+        divers: document.getElementById("pDivers").value.trim(),
+        rassemblement: document.getElementById("pRassemblement").value.trim()
+    };
+
+}
+
+function resetPatracdrForm() {
+
+    if (!patracdrToggle) return;
+
+    patracdrToggle.checked = false;
+    patracdrFields.classList.add("hidden");
+
+    ["pPersonnel", "pArmement", "pTenue", "pRadio", "pAlimentation", "pCamouflage", "pDivers", "pRassemblement"]
+        .forEach((id) => {
+            const el = document.getElementById(id);
+            if (el) el.value = "";
+        });
+
+}
+
 createBtn?.addEventListener("click", async () => {
 
     const startIso = frToIso(mStartInput.value);
@@ -251,7 +294,8 @@ createBtn?.addEventListener("click", async () => {
         end: endIso,
         location: document.getElementById("mLocation").value.trim(),
         concerned: document.getElementById("mConcerned").value.trim() || "Tous",
-        createdBy: user ? user.login : ""
+        createdBy: user ? user.login : "",
+        patracdr: collectPatracdrFromForm()
     };
 
     if (!mission.title) {
@@ -281,6 +325,7 @@ createBtn?.addEventListener("click", async () => {
         mEndInput.value = "";
         document.getElementById("mLocation").value = "";
         document.getElementById("mConcerned").value = "";
+        resetPatracdrForm();
 
     } catch (err) {
 
