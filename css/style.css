@@ -105,6 +105,45 @@ h1, h2, h3, h4{
 }
 
 /* ===========================
+   BANDEAU MISSIONS EN ATTENTE
+   (permanent, membre)
+=========================== */
+
+.pending-banner{
+
+    background:#3a2a05;
+
+    color:var(--gold);
+
+    text-align:center;
+
+    padding:14px 20px;
+
+    font-weight:700;
+
+    text-transform:uppercase;
+
+    letter-spacing:.5px;
+
+    border-bottom:3px solid var(--gold);
+
+    cursor:pointer;
+
+}
+
+.pending-banner.hidden{
+
+    display:none;
+
+}
+
+.pending-banner:hover{
+
+    background:#4a3608;
+
+}
+
+/* ===========================
    BANNIERE ALERTE NOUVELLE MISSION
 =========================== */
 
