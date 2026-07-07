@@ -590,7 +590,7 @@ function buildResponseRow(mission, login, currentStatus, editable) {
 // Sinon, liste de noms séparés par virgule.
 // ======================================
 
-function isUserConcerned(mission, user) {
+export function isUserConcerned(mission, user) {
 
     const concerned = (mission.concerned || "Tous").trim();
 
