@@ -7,7 +7,7 @@
 
 import { listenMissions, createMissionInDb } from "./firebase.js";
 import { initCalendar, setCalendarMissions, getSelectedDate } from "./calendar.js";
-import { renderMissionList, renderAllMissions, isUserConcerned } from "./missions.js";
+import { renderMissionList, renderAllMissions, isUserConcerned, getStatus, renderPresenceCounter } from "./missions.js";
 import { frToIso, autoFormatDateInput, isoToFr } from "./dateUtils.js";
 import {
     playAlertSound,
@@ -125,16 +125,19 @@ requestNotificationPermission();
 
 const createBox = document.getElementById("createMissionBox");
 const allMissionsBox = document.getElementById("allMissionsBox");
+const presenceCounterBox = document.getElementById("presenceCounterBox");
 
 if (user && user.role === "commandement") {
 
     if (createBox) createBox.style.display = "block";
     if (allMissionsBox) allMissionsBox.style.display = "block";
+    if (presenceCounterBox) presenceCounterBox.style.display = "block";
 
 } else {
 
     if (createBox) createBox.style.display = "none";
     if (allMissionsBox) allMissionsBox.style.display = "none";
+    if (presenceCounterBox) presenceCounterBox.style.display = "none";
 
 }
 
@@ -167,6 +170,7 @@ listenMissions((missions) => {
 
     if (user && user.role === "commandement") {
         renderAllMissions(allMissions, user);
+        renderPresenceCounter(allMissions);
     }
 
     const selected = getSelectedDate();
@@ -236,9 +240,13 @@ listenMissions((missions) => {
                 const prev = knownResponses.get(mission.id) || {};
                 const curr = currentResponses.get(mission.id) || {};
 
-                Object.entries(curr).forEach(([login, status]) => {
+                Object.entries(curr).forEach(([login, entry]) => {
 
-                    if (prev[login] === status) return; // pas de changement
+                    const status = getStatus(entry);
+                    const prevStatus = getStatus(prev[login]);
+
+                    if (prevStatus === status) return; // pas de changement
+                    if (!status) return; // réponse supprimée : pas d'alerte
 
                     const label = status === "present" ? "présent" : "absent";
 
