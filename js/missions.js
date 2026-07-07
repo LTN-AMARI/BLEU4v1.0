@@ -6,7 +6,7 @@
 //  - renderAllMissions  : liste complète (gestion, commandement)
 // ======================================
 
-import { setResponse, deleteMissionInDb, updateMissionInDb } from "./firebase.js";
+import { setResponse, deleteMissionInDb, updateMissionInDb, setResponseDays, removeResponse } from "./firebase.js";
 import { isoToFr, frToIso, autoFormatDateInput } from "./dateUtils.js";
 
 // ======================================
@@ -79,7 +79,7 @@ export function renderAllMissions(missions, user) {
 function renderMissionCard(mission, user) {
 
     const responses = mission.responses || {};
-    const myStatus = responses[user.login];
+    const myStatus = getStatus(responses[user.login]);
     const concernedOk = user.role === "commandement" || isUserConcerned(mission, user);
 
     const div = document.createElement("div");
@@ -482,11 +482,11 @@ function renderResponseLists(mission, responses, editable) {
     }
 
     const present = entries
-        .filter(([, status]) => status === "present")
+        .filter(([, entry]) => getStatus(entry) === "present")
         .sort((a, b) => a[0].localeCompare(b[0]));
 
     const absent = entries
-        .filter(([, status]) => status === "absent")
+        .filter(([, entry]) => getStatus(entry) === "absent")
         .sort((a, b) => a[0].localeCompare(b[0]));
 
     // ===========================
@@ -507,8 +507,8 @@ function renderResponseLists(mission, responses, editable) {
         empty.innerText = "Aucun";
         presentBlock.appendChild(empty);
     } else {
-        present.forEach(([login]) => {
-            presentBlock.appendChild(buildResponseRow(mission, login, "present", editable));
+        present.forEach(([login, entry]) => {
+            presentBlock.appendChild(buildResponseRow(mission, login, entry, editable));
         });
     }
 
@@ -530,8 +530,8 @@ function renderResponseLists(mission, responses, editable) {
         empty.innerText = "Aucun";
         absentBlock.appendChild(empty);
     } else {
-        absent.forEach(([login]) => {
-            absentBlock.appendChild(buildResponseRow(mission, login, "absent", editable));
+        absent.forEach(([login, entry]) => {
+            absentBlock.appendChild(buildResponseRow(mission, login, entry, editable));
         });
     }
 
@@ -542,7 +542,9 @@ function renderResponseLists(mission, responses, editable) {
 
 }
 
-function buildResponseRow(mission, login, currentStatus, editable) {
+function buildResponseRow(mission, login, entry, editable) {
+
+    const status = getStatus(entry);
 
     const row = document.createElement("div");
     row.className = "response-row";
@@ -553,14 +555,55 @@ function buildResponseRow(mission, login, currentStatus, editable) {
 
     row.appendChild(name);
 
+    // ===========================
+    // Jours réellement effectués
+    // (modifiable, uniquement si présent)
+    // ===========================
+
+    if (editable && status === "present") {
+
+        const days = getDays(entry, mission);
+
+        const daysInput = document.createElement("input");
+        daysInput.type = "number";
+        daysInput.min = "0";
+        daysInput.className = "days-input";
+        daysInput.value = days;
+        daysInput.title = "Jours réellement effectués";
+
+        daysInput.addEventListener("click", (e) => e.stopPropagation());
+
+        daysInput.addEventListener("change", async () => {
+
+            const newDays = Math.max(0, parseInt(daysInput.value, 10) || 0);
+            daysInput.value = newDays;
+
+            try {
+                await setResponseDays(mission.id, login, newDays);
+            } catch (err) {
+                console.error(err);
+                alert("Erreur lors de la mise à jour des jours.");
+            }
+
+        });
+
+        const daysLabel = document.createElement("span");
+        daysLabel.className = "days-label";
+        daysLabel.innerText = "j.";
+
+        row.appendChild(daysInput);
+        row.appendChild(daysLabel);
+
+    }
+
     if (editable) {
 
-        const otherStatus = currentStatus === "present" ? "absent" : "present";
+        const otherStatus = status === "present" ? "absent" : "present";
 
         const switchBtn = document.createElement("button");
         switchBtn.className = "small btn-switch";
         switchBtn.innerText =
-            currentStatus === "present" ? "→ Absent" : "→ Présent";
+            status === "present" ? "→ Absent" : "→ Présent";
 
         switchBtn.addEventListener("click", async (e) => {
             e.stopPropagation();
@@ -577,9 +620,138 @@ function buildResponseRow(mission, login, currentStatus, editable) {
 
         row.appendChild(switchBtn);
 
+        // ===========================
+        // Supprimer la réponse de cette
+        // personne (sans supprimer la mission)
+        // ===========================
+
+        const removeBtn = document.createElement("button");
+        removeBtn.className = "small btn-delete";
+        removeBtn.innerText = "Supprimer";
+
+        removeBtn.addEventListener("click", async (e) => {
+
+            e.stopPropagation();
+
+            if (!confirm(`Retirer la réponse de ${login} pour cette mission ?`)) return;
+
+            removeBtn.disabled = true;
+
+            try {
+                await removeResponse(mission.id, login);
+            } catch (err) {
+                console.error(err);
+                alert("Erreur lors de la suppression de la réponse.");
+                removeBtn.disabled = false;
+            }
+
+        });
+
+        row.appendChild(removeBtn);
+
     }
 
     return row;
+
+}
+
+// ======================================
+// COMPATIBILITE FORMAT DES REPONSES
+// Une réponse peut être :
+//  - l'ancien format : simple texte "present"/"absent"
+//  - le nouveau format : { status, days }
+// Ces fonctions lisent les deux indifféremment.
+// ======================================
+
+export function getStatus(entry) {
+
+    if (typeof entry === "string") return entry;
+    if (entry && typeof entry === "object") return entry.status;
+    return undefined;
+
+}
+
+export function getDays(entry, mission) {
+
+    if (entry && typeof entry === "object" && typeof entry.days === "number") {
+        return entry.days;
+    }
+
+    const status = getStatus(entry);
+
+    if (status === "present") {
+        return missionDurationDays(mission);
+    }
+
+    return 0;
+
+}
+
+export function missionDurationDays(mission) {
+
+    if (!mission.start || !mission.end) return 0;
+
+    const start = new Date(mission.start);
+    const end = new Date(mission.end);
+
+    const diffDays = Math.round((end - start) / (1000 * 60 * 60 * 24)) + 1;
+
+    return Math.max(diffDays, 0);
+
+}
+
+// ======================================
+// COMPTEUR DE PRESENCE (commandement)
+// Total des jours "présent" par personne,
+// toutes missions confondues.
+// ======================================
+
+export function renderPresenceCounter(missions) {
+
+    const container = document.getElementById("presenceCounterList");
+
+    if (!container) return;
+
+    const totals = new Map();
+
+    missions.forEach((mission) => {
+
+        const responses = mission.responses || {};
+
+        Object.entries(responses).forEach(([login, entry]) => {
+
+            if (getStatus(entry) !== "present") return;
+
+            const days = getDays(entry, mission);
+
+            totals.set(login, (totals.get(login) || 0) + days);
+
+        });
+
+    });
+
+    container.innerHTML = "";
+
+    if (totals.size === 0) {
+        container.innerHTML = "<p>Aucune donnée de présence pour le moment.</p>";
+        return;
+    }
+
+    const sorted = [...totals.entries()].sort((a, b) => b[1] - a[1]);
+
+    sorted.forEach(([login, total]) => {
+
+        const row = document.createElement("div");
+        row.className = "response-row";
+
+        row.innerHTML = `
+            <span class="response-name">${escapeHtml(login)}</span>
+            <span class="presence-total">${total} jour${total > 1 ? "s" : ""}</span>
+        `;
+
+        container.appendChild(row);
+
+    });
 
 }
 
