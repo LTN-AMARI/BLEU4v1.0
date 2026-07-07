@@ -7,7 +7,7 @@
 
 import { listenMissions, createMissionInDb } from "./firebase.js";
 import { initCalendar, setCalendarMissions, getSelectedDate } from "./calendar.js";
-import { renderMissionList, renderAllMissions } from "./missions.js";
+import { renderMissionList, renderAllMissions, isUserConcerned } from "./missions.js";
 import { frToIso, autoFormatDateInput, isoToFr } from "./dateUtils.js";
 import {
     playAlertSound,
@@ -50,6 +50,44 @@ function hideSplashScreen() {
 // sécurité : si Firebase ne répond jamais (mauvaise config, réseau…)
 // on ne bloque pas l'utilisateur indéfiniment derrière le logo
 setTimeout(hideSplashScreen, SPLASH_MAX_DURATION);
+
+// ======================================
+// BANDEAU MISSIONS EN ATTENTE (membre)
+// Reste affiché tant qu'il reste au moins une
+// mission (concernant le membre, pas terminée)
+// sans réponse présent/indisponible.
+// ======================================
+
+function getTodayIso() {
+    const d = new Date();
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${y}-${m}-${day}`;
+}
+
+function updatePendingBanner(count) {
+
+    const banner = document.getElementById("pendingBanner");
+    if (!banner) return;
+
+    if (count === 0) {
+        banner.classList.add("hidden");
+        return;
+    }
+
+    banner.innerText =
+        count === 1
+            ? "⚠ 1 mission en attente de ta réponse — signale ta présence ou ton indisponibilité."
+            : `⚠ ${count} missions en attente de ta réponse — signale ta présence ou ton indisponibilité.`;
+
+    banner.classList.remove("hidden");
+
+}
+
+document.getElementById("pendingBanner")?.addEventListener("click", () => {
+    document.querySelector(".calendar-header")?.scrollIntoView({ behavior: "smooth" });
+});
 
 // ======================================
 // SECURITE / SESSION
@@ -218,6 +256,29 @@ listenMissions((missions) => {
         }
 
         knownResponses = currentResponses;
+
+    }
+
+    // ===========================
+    // BANDEAU MISSIONS EN ATTENTE
+    // (membre uniquement)
+    // ===========================
+
+    if (user && user.role === "membre") {
+
+        const todayIso = getTodayIso();
+
+        const pending = missions.filter((m) => {
+
+            if (!m.end || m.end < todayIso) return false; // mission déjà terminée
+            if (!isUserConcerned(m, user)) return false;
+
+            const responses = m.responses || {};
+            return !responses[user.login];
+
+        });
+
+        updatePendingBanner(pending.length);
 
     }
 
