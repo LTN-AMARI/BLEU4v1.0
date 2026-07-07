@@ -95,11 +95,35 @@ export async function setResponse(missionId, login, status) {
     // caractères (. # $ [ ]) — on les nettoie par sécurité
     const safeLogin = login.replace(/[.#$\[\]]/g, "_");
 
-    const responsesRef = ref(db, `missions/${missionId}/responses`);
+    // on met à jour uniquement le champ "status" de l'entrée :
+    // si des jours avaient déjà été précisés, ils sont conservés.
+    // (si l'entrée existante était encore l'ancien format "texte simple",
+    // elle est automatiquement convertie au nouveau format objet)
+    const entryRef = ref(db, `missions/${missionId}/responses/${safeLogin}`);
 
-    await update(responsesRef, {
-        [safeLogin]: status
-    });
+    await update(entryRef, { status });
+
+}
+
+export async function setResponseDays(missionId, login, days) {
+
+    const safeLogin = login.replace(/[.#$\[\]]/g, "_");
+
+    const entryRef = ref(db, `missions/${missionId}/responses/${safeLogin}`);
+
+    await update(entryRef, { days });
+
+}
+
+export async function removeResponse(missionId, login) {
+
+    // retire uniquement la réponse de CETTE personne,
+    // pas besoin de supprimer toute la mission
+    const safeLogin = login.replace(/[.#$\[\]]/g, "_");
+
+    const entryRef = ref(db, `missions/${missionId}/responses/${safeLogin}`);
+
+    await remove(entryRef);
 
 }
 
