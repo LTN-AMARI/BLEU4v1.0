@@ -66,3 +66,17 @@ export function autoFormatDateInput(inputEl) {
     });
 
 }
+
+// Date du jour au format ISO "AAAA-MM-JJ",
+// utilisée pour comparer aux dates de mission.
+export function getTodayIso() {
+
+    const d = new Date();
+
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+
+    return `${y}-${m}-${day}`;
+
+}
