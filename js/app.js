@@ -139,6 +139,26 @@ if (user && user.role === "commandement") {
 }
 
 // ======================================
+// SECTIONS REPLIABLES
+// Chaque titre marqué "section-toggle" replie/déplie
+// le bloc de contenu juste en dessous (masqué par défaut).
+// ======================================
+
+document.querySelectorAll(".section-toggle").forEach((title) => {
+
+    title.addEventListener("click", () => {
+
+        const body = title.nextElementSibling;
+
+        if (body) {
+            body.classList.toggle("hidden");
+        }
+
+    });
+
+});
+
+// ======================================
 // ETAT CENTRAL DES MISSIONS
 // (seule source de vérité, alimentée par
 // l'unique lecture Firebase de firebase.js)
