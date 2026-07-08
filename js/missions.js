@@ -7,7 +7,7 @@
 // ======================================
 
 import { setResponse, deleteMissionInDb, updateMissionInDb, setResponseDays, removeResponse } from "./firebase.js";
-import { isoToFr, frToIso, autoFormatDateInput } from "./dateUtils.js";
+import { isoToFr, frToIso, autoFormatDateInput, getTodayIso } from "./dateUtils.js";
 
 // ======================================
 // VUE "JOUR SELECTIONNE" (calendrier)
@@ -55,16 +55,54 @@ export function renderAllMissions(missions, user) {
 
     if (!container) return;
 
+    // les missions archivées ne s'affichent plus ici,
+    // elles ont leur propre section
+    const active = missions.filter((m) => !m.archived);
+
     container.innerHTML = "";
 
-    if (missions.length === 0) {
+    if (active.length === 0) {
         container.innerHTML = "<p>Aucune mission créée.</p>";
         return;
     }
 
-    const sorted = missions
+    const sorted = active
         .slice()
         .sort((a, b) => (a.start || "").localeCompare(b.start || ""));
+
+    sorted.forEach((mission) => {
+        container.appendChild(renderMissionCard(mission, user));
+    });
+
+}
+
+// ======================================
+// VUE "MISSIONS ARCHIVEES" (gestion, commandement)
+// Missions terminées et rangées à part —
+// elles continuent de compter dans le
+// compteur de présence, juste plus dans
+// la liste active.
+// ======================================
+
+export function renderArchivedMissions(missions, user) {
+
+    const container = document.getElementById("archivedMissionsList");
+
+    if (!container) return;
+
+    const archived = missions.filter((m) => m.archived);
+
+    container.innerHTML = "";
+
+    if (archived.length === 0) {
+        container.innerHTML = "<p>Aucune mission archivée.</p>";
+        return;
+    }
+
+    // les plus récentes en premier
+    const sorted = archived
+        .slice()
+        .sort((a, b) => (b.start || "").localeCompare(a.start || ""));
 
     sorted.forEach((mission) => {
         container.appendChild(renderMissionCard(mission, user));
@@ -202,6 +240,59 @@ function renderMissionCard(mission, user) {
             editForm.classList.toggle("hidden");
         });
 
+        const archiveBtn = document.createElement("button");
+        archiveBtn.className = "small btn-switch";
+
+        if (mission.archived) {
+
+            archiveBtn.innerText = "Désarchiver";
+            archiveBtn.addEventListener("click", async (e) => {
+
+                e.stopPropagation();
+
+                archiveBtn.disabled = true;
+
+                try {
+                    await updateMissionInDb(mission.id, { archived: null });
+                } catch (err) {
+                    console.error(err);
+                    alert("Erreur lors de la désarchivage.");
+                    archiveBtn.disabled = false;
+                }
+
+            });
+
+        } else {
+
+            const finished = isMissionFinished(mission);
+
+            archiveBtn.innerText = "Archiver";
+            archiveBtn.disabled = !finished;
+
+            if (!finished) {
+                archiveBtn.title = "Disponible une fois la mission terminée";
+            }
+
+            archiveBtn.addEventListener("click", async (e) => {
+
+                e.stopPropagation();
+
+                if (!confirm("Archiver cette mission ? Elle sera rangée dans \"Missions archivées\".")) return;
+
+                archiveBtn.disabled = true;
+
+                try {
+                    await updateMissionInDb(mission.id, { archived: true });
+                } catch (err) {
+                    console.error(err);
+                    alert("Erreur lors de l'archivage.");
+                    archiveBtn.disabled = false;
+                }
+
+            });
+
+        }
+
         const deleteBtn = document.createElement("button");
         deleteBtn.className = "btn-delete";
         deleteBtn.innerText = "Supprimer";
@@ -224,6 +315,7 @@ function renderMissionCard(mission, user) {
         });
 
         actions.appendChild(modifyBtn);
+        actions.appendChild(archiveBtn);
         actions.appendChild(deleteBtn);
         div.appendChild(actions);
 
@@ -752,6 +844,20 @@ export function renderPresenceCounter(missions) {
         container.appendChild(row);
 
     });
+
+}
+
+// ======================================
+// Détermine si une mission est terminée
+// (date de fin déjà passée), condition pour
+// pouvoir l'archiver.
+// ======================================
+
+function isMissionFinished(mission) {
+
+    if (!mission.end) return false;
+
+    return mission.end < getTodayIso();
 
 }
 
