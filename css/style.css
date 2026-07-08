@@ -441,6 +441,40 @@ h1, h2, h3, h4{
 
 }
 
+.section-toggle{
+
+    cursor:pointer;
+
+    margin-bottom:0;
+
+}
+
+.section-toggle:hover{
+
+    opacity:.85;
+
+}
+
+.section-toggle::after{
+
+    content:" ▾";
+
+    font-size:18px;
+
+}
+
+.section-body{
+
+    margin-top:15px;
+
+}
+
+.section-body.hidden{
+
+    display:none;
+
+}
+
 /* ===========================
    INPUTS
 =========================== */
