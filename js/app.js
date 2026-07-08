@@ -7,8 +7,8 @@
 
 import { listenMissions, createMissionInDb } from "./firebase.js";
 import { initCalendar, setCalendarMissions, getSelectedDate } from "./calendar.js";
-import { renderMissionList, renderAllMissions, isUserConcerned, getStatus, renderPresenceCounter } from "./missions.js";
-import { frToIso, autoFormatDateInput, isoToFr } from "./dateUtils.js";
+import { renderMissionList, renderAllMissions, isUserConcerned, getStatus, renderPresenceCounter, renderArchivedMissions } from "./missions.js";
+import { frToIso, autoFormatDateInput, isoToFr, getTodayIso } from "./dateUtils.js";
 import {
     playAlertSound,
     showMissionBanner,
@@ -58,28 +58,22 @@ setTimeout(hideSplashScreen, SPLASH_MAX_DURATION);
 // sans réponse présent/indisponible.
 // ======================================
 
-function getTodayIso() {
-    const d = new Date();
-    const y = d.getFullYear();
-    const m = String(d.getMonth() + 1).padStart(2, "0");
-    const day = String(d.getDate()).padStart(2, "0");
-    return `${y}-${m}-${day}`;
-}
-
-function updatePendingBanner(count) {
+function updatePendingBanner(pendingMissions) {
 
     const banner = document.getElementById("pendingBanner");
     if (!banner) return;
 
-    if (count === 0) {
+    if (pendingMissions.length === 0) {
         banner.classList.add("hidden");
         return;
     }
 
+    const dates = pendingMissions.map((m) => isoToFr(m.start)).join(", ");
+
     banner.innerText =
-        count === 1
-            ? "⚠ 1 mission en attente de ta réponse — signale ta présence ou ton indisponibilité."
-            : `⚠ ${count} missions en attente de ta réponse — signale ta présence ou ton indisponibilité.`;
+        pendingMissions.length === 1
+            ? `⚠ Il vous reste à valider 1 mission (${dates}) — signale ta présence ou ton indisponibilité.`
+            : `⚠ Il vous reste à valider ${pendingMissions.length} missions (${dates}) — signale ta présence ou ton indisponibilité.`;
 
     banner.classList.remove("hidden");
 
@@ -125,18 +119,21 @@ requestNotificationPermission();
 
 const createBox = document.getElementById("createMissionBox");
 const allMissionsBox = document.getElementById("allMissionsBox");
+const archivedMissionsBox = document.getElementById("archivedMissionsBox");
 const presenceCounterBox = document.getElementById("presenceCounterBox");
 
 if (user && user.role === "commandement") {
 
     if (createBox) createBox.style.display = "block";
     if (allMissionsBox) allMissionsBox.style.display = "block";
+    if (archivedMissionsBox) archivedMissionsBox.style.display = "block";
     if (presenceCounterBox) presenceCounterBox.style.display = "block";
 
 } else {
 
     if (createBox) createBox.style.display = "none";
     if (allMissionsBox) allMissionsBox.style.display = "none";
+    if (archivedMissionsBox) archivedMissionsBox.style.display = "none";
     if (presenceCounterBox) presenceCounterBox.style.display = "none";
 
 }
@@ -170,6 +167,7 @@ listenMissions((missions) => {
 
     if (user && user.role === "commandement") {
         renderAllMissions(allMissions, user);
+        renderArchivedMissions(allMissions, user);
         renderPresenceCounter(allMissions);
     }
 
@@ -286,7 +284,7 @@ listenMissions((missions) => {
 
         });
 
-        updatePendingBanner(pending.length);
+        updatePendingBanner(pending);
 
     }
 
