@@ -830,11 +830,17 @@ export function renderPresenceCounter(missions) {
 
     if (!container) return;
 
-    const totals = new Map();
+    // deux totaux distincts par personne :
+    // - validated : missions archivées (présence confirmée définitivement)
+    // - provisional : missions encore actives (le membre s'est déclaré présent,
+    //   mais tant que la mission n'est pas archivée, ça reste prévisionnel)
+    const validated = new Map();
+    const provisional = new Map();
 
     missions.forEach((mission) => {
 
         const responses = mission.responses || {};
+        const target = mission.archived ? validated : provisional;
 
         Object.entries(responses).forEach(([login, entry]) => {
 
@@ -842,29 +848,43 @@ export function renderPresenceCounter(missions) {
 
             const days = getDays(entry, mission);
 
-            totals.set(login, (totals.get(login) || 0) + days);
+            target.set(login, (target.get(login) || 0) + days);
 
         });
 
     });
 
+    const allLogins = new Set([...validated.keys(), ...provisional.keys()]);
+
     container.innerHTML = "";
 
-    if (totals.size === 0) {
+    if (allLogins.size === 0) {
         container.innerHTML = "<p>Aucune donnée de présence pour le moment.</p>";
         return;
     }
 
-    const sorted = [...totals.entries()].sort((a, b) => b[1] - a[1]);
+    const sorted = [...allLogins].sort((a, b) => {
+        const totalA = (validated.get(a) || 0) + (provisional.get(a) || 0);
+        const totalB = (validated.get(b) || 0) + (provisional.get(b) || 0);
+        return totalB - totalA;
+    });
 
-    sorted.forEach(([login, total]) => {
+    sorted.forEach((login) => {
+
+        const validDays = validated.get(login) || 0;
+        const provDays = provisional.get(login) || 0;
+        const total = validDays + provDays;
 
         const row = document.createElement("div");
         row.className = "response-row";
 
         row.innerHTML = `
             <span class="response-name">${escapeHtml(login)}</span>
-            <span class="presence-total">${total} jour${total > 1 ? "s" : ""}</span>
+            <span class="presence-split">
+                <span class="presence-validated">✓ Validé : ${validDays} j.</span>
+                <span class="presence-provisional">◔ Prévisionnel : ${provDays} j.</span>
+                <span class="presence-total">= ${total} j. au total</span>
+            </span>
         `;
 
         container.appendChild(row);
