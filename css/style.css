@@ -132,11 +132,35 @@ h1, h2, h3, h4{
 
 }
 
-.presence-total{
+.presence-split{
+
+    display:flex;
+
+    gap:14px;
+
+    flex-wrap:wrap;
+
+    font-size:14px;
+
+    font-weight:700;
+
+}
+
+.presence-validated{
+
+    color:#8fae5c;
+
+}
+
+.presence-provisional{
 
     color:var(--gold);
 
-    font-weight:700;
+}
+
+.presence-total{
+
+    color:var(--text);
 
 }
 
