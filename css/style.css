@@ -714,33 +714,79 @@ button:hover{
 }
 
 /* ===========================
-   MISSION - EDITION PRESENCE
-   (carte cliquable pour le commandement)
+   MISSION - CARTE REPLIABLE
+   (résumé + détail, commandement)
 =========================== */
 
-.mission.clickable{
+.mission-summary{
+
+    display:flex;
+
+    justify-content:space-between;
+
+    align-items:center;
+
+    gap:12px;
+
+    flex-wrap:wrap;
 
     cursor:pointer;
 
-}
-
-.mission.clickable:hover{
-
-    background:#232323;
+    padding:4px 0;
 
 }
 
-.mission-detail-toggle{
+.mission-summary:hover{
 
-    margin-top:15px;
+    opacity:.85;
 
-    padding-top:10px;
+}
+
+.mission-summary-title{
+
+    font-family:'Bebas Neue', 'Oswald', sans-serif;
+
+    font-size:20px;
+
+    color:var(--gold);
+
+    text-transform:uppercase;
+
+    letter-spacing:.5px;
+
+}
+
+.mission-summary-dates{
+
+    color:var(--text-muted);
+
+    font-size:14px;
+
+}
+
+.mission-summary-counts{
+
+    color:var(--text);
+
+    font-size:14px;
+
+    font-weight:700;
+
+    white-space:nowrap;
+
+}
+
+.mission-body{
+
+    margin-top:14px;
+
+    padding-top:14px;
 
     border-top:1px solid var(--border);
 
 }
 
-.mission-detail-toggle.hidden{
+.mission-body.hidden{
 
     display:none;
 
