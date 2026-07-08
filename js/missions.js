@@ -123,51 +123,42 @@ function renderMissionCard(mission, user) {
     const div = document.createElement("div");
     div.className = "mission";
 
-    div.innerHTML = `
-        <h3>${escapeHtml(mission.title)}</h3>
-        ${mission.description ? `<p>${escapeHtml(mission.description)}</p>` : ""}
-        <p><strong>Lieu :</strong> ${escapeHtml(mission.location || "—")}</p>
-        <p><strong>Concernés :</strong> ${escapeHtml(mission.concerned || "Tous")}</p>
-        <p><strong>Période :</strong> ${isoToFr(mission.start)} → ${isoToFr(mission.end)}</p>
-        ${
-            user.role === "membre" && !concernedOk
-                ? `<p class="not-concerned">⚠ Vous n'êtes pas concerné par cette mission</p>`
-                : ""
-        }
-    `;
-
-    const actions = document.createElement("div");
-    actions.className = "actions";
-
-    // ===========================
-    // PATRACDR (si présent sur la mission)
-    // visible par tous, replié par défaut
-    // ===========================
-
-    if (mission.patracdr) {
-
-        const patracdrToggleBtn = document.createElement("button");
-        patracdrToggleBtn.className = "small btn-switch patracdr-toggle-btn";
-        patracdrToggleBtn.innerText = "Voir PATRACDR";
-
-        const patracdrBlock = buildPatracdrBlock(mission.patracdr);
-        patracdrBlock.classList.add("hidden");
-
-        patracdrToggleBtn.addEventListener("click", (e) => {
-            e.stopPropagation();
-            patracdrBlock.classList.toggle("hidden");
-        });
-
-        div.appendChild(patracdrToggleBtn);
-        div.appendChild(patracdrBlock);
-
-    }
+    // ==========================================================
+    // MEMBRE : carte complète toujours visible (accès rapide
+    // aux boutons présent/indisponible, pas de repli)
+    // ==========================================================
 
     if (user.role === "membre") {
 
-        // ===========================
-        // MEMBRE : répond pour lui-même
-        // ===========================
+        div.innerHTML = `
+            <h3>${escapeHtml(mission.title)}</h3>
+            ${mission.description ? `<p>${escapeHtml(mission.description)}</p>` : ""}
+            <p><strong>Lieu :</strong> ${escapeHtml(mission.location || "—")}</p>
+            <p><strong>Concernés :</strong> ${escapeHtml(mission.concerned || "Tous")}</p>
+            <p><strong>Période :</strong> ${isoToFr(mission.start)} → ${isoToFr(mission.end)}</p>
+            ${!concernedOk ? `<p class="not-concerned">⚠ Vous n'êtes pas concerné par cette mission</p>` : ""}
+        `;
+
+        if (mission.patracdr) {
+
+            const patracdrToggleBtn = document.createElement("button");
+            patracdrToggleBtn.className = "small btn-switch patracdr-toggle-btn";
+            patracdrToggleBtn.innerText = "Voir PATRACDR";
+
+            const patracdrBlock = buildPatracdrBlock(mission.patracdr);
+            patracdrBlock.classList.add("hidden");
+
+            patracdrToggleBtn.addEventListener("click", () => {
+                patracdrBlock.classList.toggle("hidden");
+            });
+
+            div.appendChild(patracdrToggleBtn);
+            div.appendChild(patracdrBlock);
+
+        }
+
+        const actions = document.createElement("div");
+        actions.className = "actions";
 
         const presentBtn = document.createElement("button");
         presentBtn.className = "btn-present";
@@ -220,118 +211,153 @@ function renderMissionCard(mission, user) {
         const readOnlyDetail = renderResponseLists(mission, responses, false);
         div.appendChild(readOnlyDetail);
 
-    } else {
+        return div;
 
-        // ===========================
-        // COMMANDEMENT : pas de bouton
-        // présent/indisponible personnel,
-        // uniquement gestion : suppression
-        // + correction de la présence réelle
-        // (clic sur la carte = ouvrir le détail)
-        // ===========================
+    }
 
-        div.classList.add("clickable");
+    // ==========================================================
+    // COMMANDEMENT : carte repliée par défaut, juste un résumé
+    // (titre, dates, compteur présents/absents) — un clic
+    // déplie tout le détail et les actions de gestion.
+    // ==========================================================
 
-        const modifyBtn = document.createElement("button");
-        modifyBtn.className = "btn-switch";
-        modifyBtn.innerText = "Modifier";
-        modifyBtn.addEventListener("click", (e) => {
-            e.stopPropagation();
-            editForm.classList.toggle("hidden");
+    const entries = Object.entries(responses);
+    const presentCount = entries.filter(([, e]) => getStatus(e) === "present").length;
+    const absentCount = entries.filter(([, e]) => getStatus(e) === "absent").length;
+
+    const summary = document.createElement("div");
+    summary.className = "mission-summary";
+    summary.innerHTML = `
+        <span class="mission-summary-title">${escapeHtml(mission.title)}</span>
+        <span class="mission-summary-dates">${isoToFr(mission.start)} → ${isoToFr(mission.end)}</span>
+        <span class="mission-summary-counts">✓ ${presentCount} · ✕ ${absentCount}</span>
+    `;
+
+    div.appendChild(summary);
+
+    const body = document.createElement("div");
+    body.className = "mission-body hidden";
+
+    body.innerHTML = `
+        ${mission.description ? `<p>${escapeHtml(mission.description)}</p>` : ""}
+        <p><strong>Lieu :</strong> ${escapeHtml(mission.location || "—")}</p>
+        <p><strong>Concernés :</strong> ${escapeHtml(mission.concerned || "Tous")}</p>
+    `;
+
+    if (mission.patracdr) {
+
+        const patracdrToggleBtn = document.createElement("button");
+        patracdrToggleBtn.className = "small btn-switch patracdr-toggle-btn";
+        patracdrToggleBtn.innerText = "Voir PATRACDR";
+
+        const patracdrBlock = buildPatracdrBlock(mission.patracdr);
+        patracdrBlock.classList.add("hidden");
+
+        patracdrToggleBtn.addEventListener("click", () => {
+            patracdrBlock.classList.toggle("hidden");
         });
 
-        const archiveBtn = document.createElement("button");
-        archiveBtn.className = "small btn-switch";
+        body.appendChild(patracdrToggleBtn);
+        body.appendChild(patracdrBlock);
 
-        if (mission.archived) {
+    }
 
-            archiveBtn.innerText = "Désarchiver";
-            archiveBtn.addEventListener("click", async (e) => {
+    const actions = document.createElement("div");
+    actions.className = "actions";
 
-                e.stopPropagation();
+    const modifyBtn = document.createElement("button");
+    modifyBtn.className = "btn-switch";
+    modifyBtn.innerText = "Modifier";
+    modifyBtn.addEventListener("click", () => {
+        editForm.classList.toggle("hidden");
+    });
 
-                archiveBtn.disabled = true;
+    const archiveBtn = document.createElement("button");
+    archiveBtn.className = "small btn-switch";
 
-                try {
-                    await updateMissionInDb(mission.id, { archived: null });
-                } catch (err) {
-                    console.error(err);
-                    alert("Erreur lors de la désarchivage.");
-                    archiveBtn.disabled = false;
-                }
+    if (mission.archived) {
 
-            });
+        archiveBtn.innerText = "Désarchiver";
+        archiveBtn.addEventListener("click", async () => {
 
-        } else {
-
-            const finished = isMissionFinished(mission);
-
-            archiveBtn.innerText = "Archiver";
-            archiveBtn.disabled = !finished;
-
-            if (!finished) {
-                archiveBtn.title = "Disponible une fois la mission terminée";
-            }
-
-            archiveBtn.addEventListener("click", async (e) => {
-
-                e.stopPropagation();
-
-                if (!confirm("Archiver cette mission ? Elle sera rangée dans \"Missions archivées\".")) return;
-
-                archiveBtn.disabled = true;
-
-                try {
-                    await updateMissionInDb(mission.id, { archived: true });
-                } catch (err) {
-                    console.error(err);
-                    alert("Erreur lors de l'archivage.");
-                    archiveBtn.disabled = false;
-                }
-
-            });
-
-        }
-
-        const deleteBtn = document.createElement("button");
-        deleteBtn.className = "btn-delete";
-        deleteBtn.innerText = "Supprimer";
-        deleteBtn.addEventListener("click", async (e) => {
-
-            e.stopPropagation();
-
-            if (!confirm("Supprimer cette mission ?")) return;
-
-            deleteBtn.disabled = true;
+            archiveBtn.disabled = true;
 
             try {
-                await deleteMissionInDb(mission.id);
+                await updateMissionInDb(mission.id, { archived: null });
             } catch (err) {
                 console.error(err);
-                alert("Erreur lors de la suppression.");
-                deleteBtn.disabled = false;
+                alert("Erreur lors du désarchivage.");
+                archiveBtn.disabled = false;
             }
 
         });
 
-        actions.appendChild(modifyBtn);
-        actions.appendChild(archiveBtn);
-        actions.appendChild(deleteBtn);
-        div.appendChild(actions);
+    } else {
 
-        const editForm = buildEditForm(mission);
-        editForm.classList.add("mission-edit-form", "hidden");
-        div.appendChild(editForm);
+        const finished = isMissionFinished(mission);
 
-        const detail = renderResponseLists(mission, responses, true);
-        detail.classList.add("mission-detail-toggle", "hidden");
-        div.appendChild(detail);
+        archiveBtn.innerText = "Archiver";
+        archiveBtn.disabled = !finished;
 
-        div.addEventListener("click", () => {
-            detail.classList.toggle("hidden");
+        if (!finished) {
+            archiveBtn.title = "Disponible une fois la mission terminée";
+        }
+
+        archiveBtn.addEventListener("click", async () => {
+
+            if (!confirm("Archiver cette mission ? Elle sera rangée dans \"Missions archivées\".")) return;
+
+            archiveBtn.disabled = true;
+
+            try {
+                await updateMissionInDb(mission.id, { archived: true });
+            } catch (err) {
+                console.error(err);
+                alert("Erreur lors de l'archivage.");
+                archiveBtn.disabled = false;
+            }
+
         });
 
     }
+
+    const deleteBtn = document.createElement("button");
+    deleteBtn.className = "btn-delete";
+    deleteBtn.innerText = "Supprimer";
+    deleteBtn.addEventListener("click", async () => {
+
+        if (!confirm("Supprimer cette mission ?")) return;
+
+        deleteBtn.disabled = true;
+
+        try {
+            await deleteMissionInDb(mission.id);
+        } catch (err) {
+            console.error(err);
+            alert("Erreur lors de la suppression.");
+            deleteBtn.disabled = false;
+        }
+
+    });
+
+    actions.appendChild(modifyBtn);
+    actions.appendChild(archiveBtn);
+    actions.appendChild(deleteBtn);
+    body.appendChild(actions);
+
+    const editForm = buildEditForm(mission);
+    editForm.classList.add("mission-edit-form", "hidden");
+    body.appendChild(editForm);
+
+    const detail = renderResponseLists(mission, responses, true);
+    body.appendChild(detail);
+
+    div.appendChild(body);
+
+    // un seul clic sur le résumé déplie/replie tout le détail
+    summary.addEventListener("click", () => {
+        body.classList.toggle("hidden");
+    });
 
     return div;
 
