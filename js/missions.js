@@ -1,16 +1,123 @@
-// ======================================
-// BLEU4 v2 - MISSIONS
-// Fournit deux vues à partir de la même carte
-// mission réutilisable :
-//  - renderMissionList  : missions du jour sélectionné (calendrier)
-//  - renderAllMissions  : liste complète (gestion, commandement)
-// ======================================
-
-import { setResponse, deleteMissionInDb, updateMissionInDb, setResponseDays, removeResponse } from "./firebase.js";
-import { isoToFr, frToIso, autoFormatDateInput, getTodayIso } from "./dateUtils.js";
 
 // ======================================
-// VUE "JOUR SELECTIONNE" (calendrier)
+// BLEU4 2027 - MISSIONS
+// Gestion des missions et des permissions
+// ======================================
+
+import {
+    setResponse,
+    deleteMissionInDb,
+    updateMissionInDb,
+    setResponseDays,
+    removeResponse
+} from "./firebase.js";
+
+import {
+    isoToFr,
+    frToIso,
+    autoFormatDateInput,
+    getTodayIso
+} from "./dateUtils.js";
+
+// ======================================
+// PERSONNEL CHARGE EN MEMOIRE
+// Permet de retrouver le groupe de chaque
+// personne pour filtrer les réponses.
+// ======================================
+
+let personnelList = [];
+
+export function setPersonnelList(personnel) {
+    personnelList = Array.isArray(personnel) ? personnel : [];
+}
+
+function getPersonnelGroup(login) {
+    const person = personnelList.find(
+        p => normalize(p.login) === normalize(login)
+    );
+
+    return person ? String(person.group) : null;
+}
+
+function normalize(value) {
+    return String(value || "").trim().toUpperCase();
+}
+
+// ======================================
+// DROITS
+// ======================================
+
+function isCDS(user) {
+    return user?.profile === "CDS";
+}
+
+function isSOA(user) {
+    return user?.profile === "SOA";
+}
+
+function isCDG(user) {
+    return ["CDG1", "CDG2", "CDG3"].includes(user?.profile);
+}
+
+function isMember(user) {
+    return user?.role === "membre";
+}
+
+function canManageMission(mission, user) {
+
+    if (isCDS(user)) return true;
+
+    if (isSOA(user)) return false;
+
+    if (isCDG(user)) {
+        return String(mission.group || "") === String(user.group || "");
+    }
+
+    return false;
+}
+
+function canCreateMission(user) {
+    return isCDS(user) || isCDG(user);
+}
+
+// ======================================
+// FILTRAGE DES MISSIONS
+// ======================================
+
+function canSeeMission(mission, user) {
+
+    if (!user) return false;
+
+    // CDS et SOA voient toutes les missions,
+    // y compris les anciennes sans groupe.
+    if (isCDS(user) || isSOA(user)) return true;
+
+    // CDG : son groupe et les anciennes missions
+    // sans groupe (consultation uniquement).
+    if (isCDG(user)) {
+        if (!mission.group) return true;
+        return String(mission.group) === String(user.group);
+    }
+
+    // Membres : missions de leur groupe.
+    // Les anciennes missions sans groupe restent visibles.
+    if (isMember(user)) {
+        if (mission.group && String(mission.group) !== String(user.group)) {
+            return false;
+        }
+
+        return isUserConcerned(mission, user);
+    }
+
+    return false;
+}
+
+function filterMissions(missions, user) {
+    return missions.filter(mission => canSeeMission(mission, user));
+}
+
+// ======================================
+// VUE : MISSIONS DU JOUR
 // ======================================
 
 export function renderMissionList(missions, date, user) {
@@ -28,8 +135,10 @@ export function renderMissionList(missions, date, user) {
 
     titleEl.innerText = isoToFr(date);
 
-    const dayMissions = missions.filter(
-        (m) => m.start && m.end && date >= m.start && date <= m.end
+    const visible = filterMissions(missions, user);
+
+    const dayMissions = visible.filter(
+        m => m.start && m.end && date >= m.start && date <= m.end
     );
 
     container.innerHTML = "";
@@ -39,25 +148,23 @@ export function renderMissionList(missions, date, user) {
         return;
     }
 
-    dayMissions.forEach((mission) => {
+    dayMissions.forEach(mission => {
         container.appendChild(renderMissionCard(mission, user));
     });
-
 }
 
 // ======================================
-// VUE "TOUTES LES MISSIONS" (gestion, commandement)
+// VUE : TOUTES LES MISSIONS
 // ======================================
 
 export function renderAllMissions(missions, user) {
 
     const container = document.getElementById("allMissionsList");
-
     if (!container) return;
 
-    // les missions archivées ne s'affichent plus ici,
-    // elles ont leur propre section
-    const active = missions.filter((m) => !m.archived);
+    const active = filterMissions(missions, user)
+        .filter(m => !m.archived)
+        .sort((a, b) => (a.start || "").localeCompare(b.start || ""));
 
     container.innerHTML = "";
 
@@ -66,31 +173,23 @@ export function renderAllMissions(missions, user) {
         return;
     }
 
-    const sorted = active
-        .slice()
-        .sort((a, b) => (a.start || "").localeCompare(b.start || ""));
-
-    sorted.forEach((mission) => {
+    active.forEach(mission => {
         container.appendChild(renderMissionCard(mission, user));
     });
-
 }
 
 // ======================================
-// VUE "MISSIONS ARCHIVEES" (gestion, commandement)
-// Missions terminées et rangées à part —
-// elles continuent de compter dans le
-// compteur de présence, juste plus dans
-// la liste active.
+// VUE : MISSIONS ARCHIVEES
 // ======================================
 
 export function renderArchivedMissions(missions, user) {
 
     const container = document.getElementById("archivedMissionsList");
-
     if (!container) return;
 
-    const archived = missions.filter((m) => m.archived);
+    const archived = filterMissions(missions, user)
+        .filter(m => m.archived)
+        .sort((a, b) => (b.start || "").localeCompare(a.start || ""));
 
     container.innerHTML = "";
 
@@ -99,36 +198,30 @@ export function renderArchivedMissions(missions, user) {
         return;
     }
 
-    // les plus récentes en premier
-    const sorted = archived
-        .slice()
-        .sort((a, b) => (b.start || "").localeCompare(a.start || ""));
-
-    sorted.forEach((mission) => {
+    archived.forEach(mission => {
         container.appendChild(renderMissionCard(mission, user));
     });
-
 }
 
 // ======================================
-// CARTE MISSION REUTILISABLE
+// CARTE MISSION
 // ======================================
 
 function renderMissionCard(mission, user) {
 
     const responses = mission.responses || {};
     const myStatus = getStatus(responses[user.login]);
-    const concernedOk = user.role === "commandement" || isUserConcerned(mission, user);
 
     const div = document.createElement("div");
     div.className = "mission";
 
-    // ==========================================================
-    // MEMBRE : carte complète toujours visible (accès rapide
-    // aux boutons présent/indisponible, pas de repli)
-    // ==========================================================
+    const manageable = canManageMission(mission, user);
 
-    if (user.role === "membre") {
+    // ==================================
+    // MEMBRE
+    // ==================================
+
+    if (isMember(user)) {
 
         div.innerHTML = `
             <h3>${escapeHtml(mission.title)}</h3>
@@ -136,25 +229,16 @@ function renderMissionCard(mission, user) {
             <p><strong>Lieu :</strong> ${escapeHtml(mission.location || "—")}</p>
             <p><strong>Concernés :</strong> ${escapeHtml(mission.concerned || "Tous")}</p>
             <p><strong>Période :</strong> ${isoToFr(mission.start)} → ${isoToFr(mission.end)}</p>
-            ${!concernedOk ? `<p class="not-concerned">⚠ Vous n'êtes pas concerné par cette mission</p>` : ""}
         `;
 
+        if (mission.group) {
+            const groupLabel = document.createElement("p");
+            groupLabel.innerHTML = `<strong>Groupe :</strong> ${escapeHtml(mission.group)}`;
+            div.appendChild(groupLabel);
+        }
+
         if (mission.patracdr) {
-
-            const patracdrToggleBtn = document.createElement("button");
-            patracdrToggleBtn.className = "small btn-switch patracdr-toggle-btn";
-            patracdrToggleBtn.innerText = "Voir PATRACDR";
-
-            const patracdrBlock = buildPatracdrBlock(mission.patracdr);
-            patracdrBlock.classList.add("hidden");
-
-            patracdrToggleBtn.addEventListener("click", () => {
-                patracdrBlock.classList.toggle("hidden");
-            });
-
-            div.appendChild(patracdrToggleBtn);
-            div.appendChild(patracdrBlock);
-
+            addPatracdrToggle(div, mission.patracdr);
         }
 
         const actions = document.createElement("div");
@@ -163,74 +247,50 @@ function renderMissionCard(mission, user) {
         const presentBtn = document.createElement("button");
         presentBtn.className = "btn-present";
         presentBtn.innerText = myStatus === "present" ? "✔ Présent" : "Présent";
+
         presentBtn.addEventListener("click", async () => {
-
-            if (!concernedOk) {
-                alert("Non concerné par cette mission.");
-                return;
-            }
-
-            presentBtn.disabled = true;
-            try {
-                await setResponse(mission.id, user.login, "present");
-            } catch (err) {
-                console.error(err);
-                alert("Erreur lors de l'enregistrement de la réponse.");
-            } finally {
-                presentBtn.disabled = false;
-            }
+            await submitResponse(mission, user, "present", presentBtn);
         });
 
         const absentBtn = document.createElement("button");
         absentBtn.className = "btn-absent";
         absentBtn.innerText = myStatus === "absent" ? "✔ Indisponible" : "Indisponible";
+
         absentBtn.addEventListener("click", async () => {
-
-            if (!concernedOk) {
-                alert("Non concerné par cette mission.");
-                return;
-            }
-
-            absentBtn.disabled = true;
-            try {
-                await setResponse(mission.id, user.login, "absent");
-            } catch (err) {
-                console.error(err);
-                alert("Erreur lors de l'enregistrement de la réponse.");
-            } finally {
-                absentBtn.disabled = false;
-            }
+            await submitResponse(mission, user, "absent", absentBtn);
         });
 
-        actions.appendChild(presentBtn);
-        actions.appendChild(absentBtn);
+        actions.append(presentBtn, absentBtn);
         div.appendChild(actions);
 
-        // liste en lecture seule : les membres voient qui a répondu,
-        // mais ne peuvent pas modifier les réponses des autres
-        const readOnlyDetail = renderResponseLists(mission, responses, false);
-        div.appendChild(readOnlyDetail);
+        div.appendChild(renderResponseLists(mission, responses, false, user));
 
         return div;
-
     }
 
-    // ==========================================================
-    // COMMANDEMENT : carte repliée par défaut, juste un résumé
-    // (titre, dates, compteur présents/absents) — un clic
-    // déplie tout le détail et les actions de gestion.
-    // ==========================================================
+    // ==================================
+    // COMMANDEMENT : RESUME
+    // ==================================
 
     const entries = Object.entries(responses);
-    const presentCount = entries.filter(([, e]) => getStatus(e) === "present").length;
-    const absentCount = entries.filter(([, e]) => getStatus(e) === "absent").length;
+
+    const presentCount = entries.filter(
+        ([, entry]) => getStatus(entry) === "present"
+    ).length;
+
+    const absentCount = entries.filter(
+        ([, entry]) => getStatus(entry) === "absent"
+    ).length;
 
     const summary = document.createElement("div");
     summary.className = "mission-summary";
+
     summary.innerHTML = `
         <span class="mission-summary-title">${escapeHtml(mission.title)}</span>
         <span class="mission-summary-dates">${isoToFr(mission.start)} → ${isoToFr(mission.end)}</span>
         <span class="mission-summary-counts">✓ ${presentCount} · ✕ ${absentCount}</span>
+        ${mission.group ? `<span class="mission-summary-group">Groupe ${escapeHtml(mission.group)}</span>` : ""}
+        ${!mission.group ? `<span class="mission-summary-group">Ancienne mission</span>` : ""}
     `;
 
     div.appendChild(summary);
@@ -245,138 +305,170 @@ function renderMissionCard(mission, user) {
     `;
 
     if (mission.patracdr) {
-
-        const patracdrToggleBtn = document.createElement("button");
-        patracdrToggleBtn.className = "small btn-switch patracdr-toggle-btn";
-        patracdrToggleBtn.innerText = "Voir PATRACDR";
-
-        const patracdrBlock = buildPatracdrBlock(mission.patracdr);
-        patracdrBlock.classList.add("hidden");
-
-        patracdrToggleBtn.addEventListener("click", () => {
-            patracdrBlock.classList.toggle("hidden");
-        });
-
-        body.appendChild(patracdrToggleBtn);
-        body.appendChild(patracdrBlock);
-
+        addPatracdrToggle(body, mission.patracdr);
     }
 
-    const actions = document.createElement("div");
-    actions.className = "actions";
+    // ==================================
+    // ACTIONS SELON LES DROITS
+    // ==================================
 
-    const modifyBtn = document.createElement("button");
-    modifyBtn.className = "btn-switch";
-    modifyBtn.innerText = "Modifier";
-    modifyBtn.addEventListener("click", () => {
-        editForm.classList.toggle("hidden");
-    });
+    if (manageable) {
 
-    const archiveBtn = document.createElement("button");
-    archiveBtn.className = "small btn-switch";
+        const actions = document.createElement("div");
+        actions.className = "actions";
 
-    if (mission.archived) {
+        const modifyBtn = document.createElement("button");
+        modifyBtn.className = "btn-switch";
+        modifyBtn.innerText = "Modifier";
 
-        archiveBtn.innerText = "Désarchiver";
-        archiveBtn.addEventListener("click", async () => {
+        const editForm = buildEditForm(mission);
+        editForm.classList.add("mission-edit-form", "hidden");
 
-            archiveBtn.disabled = true;
-
-            try {
-                await updateMissionInDb(mission.id, { archived: null });
-            } catch (err) {
-                console.error(err);
-                alert("Erreur lors du désarchivage.");
-                archiveBtn.disabled = false;
-            }
-
+        modifyBtn.addEventListener("click", e => {
+            e.stopPropagation();
+            editForm.classList.toggle("hidden");
         });
 
+        const archiveBtn = document.createElement("button");
+        archiveBtn.className = "small btn-switch";
+
+        if (mission.archived) {
+
+            archiveBtn.innerText = "Désarchiver";
+
+            archiveBtn.addEventListener("click", async e => {
+                e.stopPropagation();
+
+                archiveBtn.disabled = true;
+
+                try {
+                    await updateMissionInDb(mission.id, { archived: null });
+                } catch (err) {
+                    console.error(err);
+                    alert("Erreur lors du désarchivage.");
+                    archiveBtn.disabled = false;
+                }
+            });
+
+        } else {
+
+            archiveBtn.innerText = "Archiver";
+            archiveBtn.disabled = !isMissionFinished(mission);
+
+            if (!isMissionFinished(mission)) {
+                archiveBtn.title = "Disponible une fois la mission terminée";
+            }
+
+            archiveBtn.addEventListener("click", async e => {
+                e.stopPropagation();
+
+                if (!confirm("Archiver cette mission ?")) return;
+
+                archiveBtn.disabled = true;
+
+                try {
+                    await updateMissionInDb(mission.id, { archived: true });
+                } catch (err) {
+                    console.error(err);
+                    alert("Erreur lors de l'archivage.");
+                    archiveBtn.disabled = false;
+                }
+            });
+        }
+
+        const deleteBtn = document.createElement("button");
+        deleteBtn.className = "btn-delete";
+        deleteBtn.innerText = "Supprimer";
+
+        deleteBtn.addEventListener("click", async e => {
+            e.stopPropagation();
+
+            if (!confirm("Supprimer définitivement cette mission ?")) return;
+
+            deleteBtn.disabled = true;
+
+            try {
+                await deleteMissionInDb(mission.id);
+            } catch (err) {
+                console.error(err);
+                alert("Erreur lors de la suppression.");
+                deleteBtn.disabled = false;
+            }
+        });
+
+        actions.append(modifyBtn, archiveBtn, deleteBtn);
+        body.appendChild(actions);
+        body.appendChild(editForm);
     } else {
-
-        const finished = isMissionFinished(mission);
-
-        archiveBtn.innerText = "Archiver";
-        archiveBtn.disabled = !finished;
-
-        if (!finished) {
-            archiveBtn.title = "Disponible une fois la mission terminée";
-        }
-
-        archiveBtn.addEventListener("click", async () => {
-
-            if (!confirm("Archiver cette mission ? Elle sera rangée dans \"Missions archivées\".")) return;
-
-            archiveBtn.disabled = true;
-
-            try {
-                await updateMissionInDb(mission.id, { archived: true });
-            } catch (err) {
-                console.error(err);
-                alert("Erreur lors de l'archivage.");
-                archiveBtn.disabled = false;
-            }
-
-        });
-
+        const readOnly = document.createElement("p");
+        readOnly.className = "muted";
+        readOnly.innerText = isSOA(user)
+            ? "Consultation uniquement — profil SOA"
+            : "Consultation uniquement — mission sans groupe attribué";
+        body.appendChild(readOnly);
     }
 
-    const deleteBtn = document.createElement("button");
-    deleteBtn.className = "btn-delete";
-    deleteBtn.innerText = "Supprimer";
-    deleteBtn.addEventListener("click", async () => {
-
-        if (!confirm("Supprimer cette mission ?")) return;
-
-        deleteBtn.disabled = true;
-
-        try {
-            await deleteMissionInDb(mission.id);
-        } catch (err) {
-            console.error(err);
-            alert("Erreur lors de la suppression.");
-            deleteBtn.disabled = false;
-        }
-
-    });
-
-    actions.appendChild(modifyBtn);
-    actions.appendChild(archiveBtn);
-    actions.appendChild(deleteBtn);
-    body.appendChild(actions);
-
-    const editForm = buildEditForm(mission);
-    editForm.classList.add("mission-edit-form", "hidden");
-    body.appendChild(editForm);
-
-    const detail = renderResponseLists(mission, responses, true);
-    body.appendChild(detail);
+    body.appendChild(renderResponseLists(mission, responses, manageable, user));
 
     div.appendChild(body);
 
-    // un seul clic sur le résumé déplie/replie tout le détail
     summary.addEventListener("click", () => {
         body.classList.toggle("hidden");
     });
 
     return div;
-
 }
 
 // ======================================
-// BLOC PATRACDR (affichage)
-// Personnel, Armement, Tenue, Radio,
-// Alimentation, Camouflage, Divers, Rassemblement
+// REPONSE MEMBRE
 // ======================================
+
+async function submitResponse(mission, user, status, button) {
+
+    if (!isUserConcerned(mission, user)) {
+        alert("Tu n'es pas concerné par cette mission.");
+        return;
+    }
+
+    button.disabled = true;
+
+    try {
+        await setResponse(mission.id, user.login, status);
+    } catch (err) {
+        console.error(err);
+        alert("Erreur lors de l'enregistrement de la réponse.");
+    } finally {
+        button.disabled = false;
+    }
+}
+
+// ======================================
+// PATRACDR
+// ======================================
+
+function addPatracdrToggle(container, patracdr) {
+
+    const toggle = document.createElement("button");
+    toggle.className = "small btn-switch patracdr-toggle-btn";
+    toggle.innerText = "Voir PATRACDR";
+
+    const block = buildPatracdrBlock(patracdr);
+    block.classList.add("hidden");
+
+    toggle.addEventListener("click", e => {
+        e.stopPropagation();
+        block.classList.toggle("hidden");
+    });
+
+    container.append(toggle, block);
+}
 
 function buildPatracdrBlock(patracdr) {
 
     const block = document.createElement("div");
     block.className = "patracdr-block";
 
-    // empêche le clic dans le bloc d'ouvrir/fermer
-    // le détail des réponses de la carte parente
-    block.addEventListener("click", (e) => e.stopPropagation());
+    block.addEventListener("click", e => e.stopPropagation());
 
     const fields = [
         ["Personnel", patracdr.personnel],
@@ -391,18 +483,15 @@ function buildPatracdrBlock(patracdr) {
 
     block.innerHTML =
         `<h4 class="patracdr-title">PATRACDR</h4>` +
-        fields
-            .map(([label, value]) => `<p><strong>${label} :</strong> ${escapeHtml(value || "—")}</p>`)
-            .join("");
+        fields.map(([label, value]) =>
+            `<p><strong>${label} :</strong> ${escapeHtml(value || "—")}</p>`
+        ).join("");
 
     return block;
-
 }
 
 // ======================================
-// FORMULAIRE D'EDITION (commandement)
-// Modifie titre, description, dates, lieu,
-// concernés — ne touche jamais aux réponses.
+// FORMULAIRE MODIFICATION MISSION
 // ======================================
 
 function buildEditForm(mission) {
@@ -421,12 +510,12 @@ function buildEditForm(mission) {
             <div>
                 <label>Date début</label>
                 <input type="text" class="edit-start" inputmode="numeric" maxlength="10"
-                    placeholder="JJ/MM/AAAA" value="${isoToFr(mission.start)}">
+                    value="${isoToFr(mission.start)}">
             </div>
             <div>
                 <label>Date fin</label>
                 <input type="text" class="edit-end" inputmode="numeric" maxlength="10"
-                    placeholder="JJ/MM/AAAA" value="${isoToFr(mission.end)}">
+                    value="${isoToFr(mission.end)}">
             </div>
         </div>
 
@@ -442,7 +531,6 @@ function buildEditForm(mission) {
         </label>
 
         <div class="edit-patracdr-fields patracdr-fields ${mission.patracdr ? "" : "hidden"}">
-
             <label>Personnel</label>
             <input type="text" class="edit-p-personnel" value="${escapeAttr(mission.patracdr?.personnel || "")}">
 
@@ -466,21 +554,18 @@ function buildEditForm(mission) {
 
             <label>Rassemblement</label>
             <input type="text" class="edit-p-rassemblement" value="${escapeAttr(mission.patracdr?.rassemblement || "")}">
-
         </div>
 
         <div class="actions"></div>
     `;
 
-    // empêche tout clic dans le formulaire de fermer/ouvrir
-    // le détail des réponses de la carte parente
-    form.addEventListener("click", (e) => e.stopPropagation());
+    form.addEventListener("click", e => e.stopPropagation());
 
     const patracdrToggle = form.querySelector(".edit-patracdr-toggle");
-    const patracdrFieldsWrap = form.querySelector(".edit-patracdr-fields");
+    const patracdrFields = form.querySelector(".edit-patracdr-fields");
 
     patracdrToggle.addEventListener("change", () => {
-        patracdrFieldsWrap.classList.toggle("hidden", !patracdrToggle.checked);
+        patracdrFields.classList.toggle("hidden", !patracdrToggle.checked);
     });
 
     const startInput = form.querySelector(".edit-start");
@@ -489,7 +574,7 @@ function buildEditForm(mission) {
     autoFormatDateInput(startInput);
     autoFormatDateInput(endInput);
 
-    const actionsWrap = form.querySelector(".actions");
+    const actions = form.querySelector(".actions");
 
     const saveBtn = document.createElement("button");
     saveBtn.className = "btn-present";
@@ -498,6 +583,7 @@ function buildEditForm(mission) {
     const cancelBtn = document.createElement("button");
     cancelBtn.className = "btn-delete";
     cancelBtn.innerText = "Annuler";
+
     cancelBtn.addEventListener("click", () => {
         form.classList.add("hidden");
     });
@@ -509,20 +595,20 @@ function buildEditForm(mission) {
         const location = form.querySelector(".edit-location").value.trim();
         const concerned = form.querySelector(".edit-concerned").value.trim() || "Tous";
 
-        const startIso = frToIso(startInput.value);
-        const endIso = frToIso(endInput.value);
+        const start = frToIso(startInput.value);
+        const end = frToIso(endInput.value);
 
         if (!title) {
             alert("Le titre est obligatoire.");
             return;
         }
 
-        if (!startIso || !endIso) {
-            alert("Les dates doivent être valides et au format JJ/MM/AAAA.");
+        if (!start || !end) {
+            alert("Dates invalides. Utilise le format JJ/MM/AAAA.");
             return;
         }
 
-        if (endIso < startIso) {
+        if (end < start) {
             alert("La date de fin ne peut pas être avant la date de début.");
             return;
         }
@@ -536,12 +622,11 @@ function buildEditForm(mission) {
                 description,
                 location,
                 concerned,
-                start: startIso,
-                end: endIso
+                start,
+                end
             };
 
             if (patracdrToggle.checked) {
-
                 fields.patracdr = {
                     personnel: form.querySelector(".edit-p-personnel").value.trim(),
                     armement: form.querySelector(".edit-p-armement").value.trim(),
@@ -552,16 +637,11 @@ function buildEditForm(mission) {
                     divers: form.querySelector(".edit-p-divers").value.trim(),
                     rassemblement: form.querySelector(".edit-p-rassemblement").value.trim()
                 };
-
             } else {
-
-                // décoché : on retire le PATRACDR existant de la mission
                 fields.patracdr = null;
-
             }
 
             await updateMissionInDb(mission.id, fields);
-
             form.classList.add("hidden");
 
         } catch (err) {
@@ -570,29 +650,32 @@ function buildEditForm(mission) {
         } finally {
             saveBtn.disabled = false;
         }
-
     });
 
-    actionsWrap.appendChild(saveBtn);
-    actionsWrap.appendChild(cancelBtn);
+    actions.append(saveBtn, cancelBtn);
 
     return form;
-
 }
 
 // ======================================
-// LISTES VERTICALES PRESENTS / ABSENTS
-// - editable = true  (commandement) : bouton pour
-//   corriger le statut réel de chaque personne.
-// - editable = false (membre) : lecture seule.
+// LISTES DES REPONSES
 // ======================================
 
-function renderResponseLists(mission, responses, editable) {
+function renderResponseLists(mission, responses, editable, user) {
 
     const wrap = document.createElement("div");
     wrap.className = "list";
 
-    const entries = Object.entries(responses);
+    let entries = Object.entries(responses);
+
+    // Pour les missions attribuées à un groupe,
+    // les CDG et membres ne voient que les réponses
+    // des personnes enregistrées dans ce groupe.
+    if (mission.group && (isCDG(user) || isMember(user))) {
+        entries = entries.filter(([login]) =>
+            getPersonnelGroup(login) === String(mission.group)
+        );
+    }
 
     if (entries.length === 0) {
         wrap.innerHTML = "<p>Aucune réponse pour le moment.</p>";
@@ -607,57 +690,40 @@ function renderResponseLists(mission, responses, editable) {
         .filter(([, entry]) => getStatus(entry) === "absent")
         .sort((a, b) => a[0].localeCompare(b[0]));
 
-    // ===========================
-    // Bloc PRESENTS
-    // ===========================
+    wrap.appendChild(buildResponseGroup(
+        mission, present, "Présents", "present", editable
+    ));
 
-    const presentBlock = document.createElement("div");
-    presentBlock.className = "response-group";
-
-    const presentTitle = document.createElement("h4");
-    presentTitle.className = "response-group-title present";
-    presentTitle.innerText = `Présents (${present.length})`;
-    presentBlock.appendChild(presentTitle);
-
-    if (present.length === 0) {
-        const empty = document.createElement("p");
-        empty.className = "muted";
-        empty.innerText = "Aucun";
-        presentBlock.appendChild(empty);
-    } else {
-        present.forEach(([login, entry]) => {
-            presentBlock.appendChild(buildResponseRow(mission, login, entry, editable));
-        });
-    }
-
-    // ===========================
-    // Bloc ABSENTS
-    // ===========================
-
-    const absentBlock = document.createElement("div");
-    absentBlock.className = "response-group";
-
-    const absentTitle = document.createElement("h4");
-    absentTitle.className = "response-group-title absent";
-    absentTitle.innerText = `Absents (${absent.length})`;
-    absentBlock.appendChild(absentTitle);
-
-    if (absent.length === 0) {
-        const empty = document.createElement("p");
-        empty.className = "muted";
-        empty.innerText = "Aucun";
-        absentBlock.appendChild(empty);
-    } else {
-        absent.forEach(([login, entry]) => {
-            absentBlock.appendChild(buildResponseRow(mission, login, entry, editable));
-        });
-    }
-
-    wrap.appendChild(presentBlock);
-    wrap.appendChild(absentBlock);
+    wrap.appendChild(buildResponseGroup(
+        mission, absent, "Absents", "absent", editable
+    ));
 
     return wrap;
+}
 
+function buildResponseGroup(mission, entries, label, type, editable) {
+
+    const block = document.createElement("div");
+    block.className = "response-group";
+
+    const title = document.createElement("h4");
+    title.className = `response-group-title ${type}`;
+    title.innerText = `${label} (${entries.length})`;
+
+    block.appendChild(title);
+
+    if (entries.length === 0) {
+        const empty = document.createElement("p");
+        empty.className = "muted";
+        empty.innerText = "Aucun";
+        block.appendChild(empty);
+    } else {
+        entries.forEach(([login, entry]) => {
+            block.appendChild(buildResponseRow(mission, login, entry, editable));
+        });
+    }
+
+    return block;
 }
 
 function buildResponseRow(mission, login, entry, editable) {
@@ -673,45 +739,35 @@ function buildResponseRow(mission, login, entry, editable) {
 
     row.appendChild(name);
 
-    // ===========================
-    // Jours réellement effectués
-    // (modifiable, uniquement si présent)
-    // ===========================
-
     if (editable && status === "present") {
-
-        const days = getDays(entry, mission);
 
         const daysInput = document.createElement("input");
         daysInput.type = "number";
         daysInput.min = "0";
         daysInput.className = "days-input";
-        daysInput.value = days;
+        daysInput.value = getDays(entry, mission);
         daysInput.title = "Jours réellement effectués";
 
-        daysInput.addEventListener("click", (e) => e.stopPropagation());
+        daysInput.addEventListener("click", e => e.stopPropagation());
 
         daysInput.addEventListener("change", async () => {
 
-            const newDays = Math.max(0, parseInt(daysInput.value, 10) || 0);
-            daysInput.value = newDays;
+            const days = Math.max(0, parseInt(daysInput.value, 10) || 0);
+            daysInput.value = days;
 
             try {
-                await setResponseDays(mission.id, login, newDays);
+                await setResponseDays(mission.id, login, days);
             } catch (err) {
                 console.error(err);
                 alert("Erreur lors de la mise à jour des jours.");
             }
-
         });
 
         const daysLabel = document.createElement("span");
         daysLabel.className = "days-label";
         daysLabel.innerText = "j.";
 
-        row.appendChild(daysInput);
-        row.appendChild(daysLabel);
-
+        row.append(daysInput, daysLabel);
     }
 
     if (editable) {
@@ -720,12 +776,12 @@ function buildResponseRow(mission, login, entry, editable) {
 
         const switchBtn = document.createElement("button");
         switchBtn.className = "small btn-switch";
-        switchBtn.innerText =
-            status === "present" ? "→ Absent" : "→ Présent";
+        switchBtn.innerText = status === "present" ? "→ Absent" : "→ Présent";
 
-        switchBtn.addEventListener("click", async (e) => {
+        switchBtn.addEventListener("click", async e => {
             e.stopPropagation();
             switchBtn.disabled = true;
+
             try {
                 await setResponse(mission.id, login, otherStatus);
             } catch (err) {
@@ -736,22 +792,14 @@ function buildResponseRow(mission, login, entry, editable) {
             }
         });
 
-        row.appendChild(switchBtn);
-
-        // ===========================
-        // Supprimer la réponse de cette
-        // personne (sans supprimer la mission)
-        // ===========================
-
         const removeBtn = document.createElement("button");
         removeBtn.className = "small btn-delete";
         removeBtn.innerText = "Supprimer";
 
-        removeBtn.addEventListener("click", async (e) => {
-
+        removeBtn.addEventListener("click", async e => {
             e.stopPropagation();
 
-            if (!confirm(`Retirer la réponse de ${login} pour cette mission ?`)) return;
+            if (!confirm(`Retirer la réponse de ${login} ?`)) return;
 
             removeBtn.disabled = true;
 
@@ -762,31 +810,22 @@ function buildResponseRow(mission, login, entry, editable) {
                 alert("Erreur lors de la suppression de la réponse.");
                 removeBtn.disabled = false;
             }
-
         });
 
-        row.appendChild(removeBtn);
-
+        row.append(switchBtn, removeBtn);
     }
 
     return row;
-
 }
 
 // ======================================
-// COMPATIBILITE FORMAT DES REPONSES
-// Une réponse peut être :
-//  - l'ancien format : simple texte "present"/"absent"
-//  - le nouveau format : { status, days }
-// Ces fonctions lisent les deux indifféremment.
+// STATUT ET JOURS
 // ======================================
 
 export function getStatus(entry) {
-
     if (typeof entry === "string") return entry;
     if (entry && typeof entry === "object") return entry.status;
     return undefined;
-
 }
 
 export function getDays(entry, mission) {
@@ -795,49 +834,42 @@ export function getDays(entry, mission) {
         return entry.days;
     }
 
-    const status = getStatus(entry);
-
-    if (status === "present") {
+    if (getStatus(entry) === "present") {
         return missionDurationDays(mission);
     }
 
     return 0;
-
 }
 
 export function missionDurationDays(mission) {
 
     if (!mission.start || !mission.end) return 0;
 
-    const start = new Date(mission.start);
-    const end = new Date(mission.end);
+    const start = new Date(`${mission.start}T00:00:00`);
+    const end = new Date(`${mission.end}T00:00:00`);
 
-    const diffDays = Math.round((end - start) / (1000 * 60 * 60 * 24)) + 1;
+    const diff = Math.round((end - start) / 86400000) + 1;
 
-    return Math.max(diffDays, 0);
-
+    return Math.max(diff, 0);
 }
 
 // ======================================
-// COMPTEUR DE PRESENCE (commandement)
-// Total des jours "présent" par personne,
-// toutes missions confondues.
+// COMPTEUR DE PRESENCE
 // ======================================
 
-export function renderPresenceCounter(missions) {
+export function renderPresenceCounter(missions, user = null) {
 
     const container = document.getElementById("presenceCounterList");
-
     if (!container) return;
 
-    // deux totaux distincts par personne :
-    // - validated : missions archivées (présence confirmée définitivement)
-    // - provisional : missions encore actives (le membre s'est déclaré présent,
-    //   mais tant que la mission n'est pas archivée, ça reste prévisionnel)
     const validated = new Map();
     const provisional = new Map();
 
-    missions.forEach((mission) => {
+    const visibleMissions = user
+        ? filterMissions(missions, user)
+        : missions;
+
+    visibleMissions.forEach(mission => {
 
         const responses = mission.responses || {};
         const target = mission.archived ? validated : provisional;
@@ -846,12 +878,14 @@ export function renderPresenceCounter(missions) {
 
             if (getStatus(entry) !== "present") return;
 
+            if (user && isCDG(user) && getPersonnelGroup(login) !== String(user.group)) {
+                return;
+            }
+
             const days = getDays(entry, mission);
 
             target.set(login, (target.get(login) || 0) + days);
-
         });
-
     });
 
     const allLogins = new Set([...validated.keys(), ...provisional.keys()]);
@@ -869,7 +903,7 @@ export function renderPresenceCounter(missions) {
         return totalB - totalA;
     });
 
-    sorted.forEach((login) => {
+    sorted.forEach(login => {
 
         const validDays = validated.get(login) || 0;
         const provDays = provisional.get(login) || 0;
@@ -888,35 +922,27 @@ export function renderPresenceCounter(missions) {
         `;
 
         container.appendChild(row);
-
     });
-
 }
 
 // ======================================
-// Détermine si une mission est terminée
-// (date de fin déjà passée), condition pour
-// pouvoir l'archiver.
+// MISSIONS TERMINEES
 // ======================================
 
 function isMissionFinished(mission) {
-
     if (!mission.end) return false;
-
     return mission.end < getTodayIso();
-
 }
 
 // ======================================
-// Détermine si l'utilisateur fait partie
-// des personnes concernées par la mission.
-// "Tous" (ou champ vide) = tout le monde.
-// Sinon, liste de noms séparés par virgule.
+// PERSONNE CONCERNEE
 // ======================================
 
 export function isUserConcerned(mission, user) {
 
-    const concerned = (mission.concerned || "Tous").trim();
+    if (!user) return false;
+
+    const concerned = String(mission.concerned || "Tous").trim();
 
     if (!concerned || concerned.toLowerCase() === "tous") {
         return true;
@@ -924,25 +950,24 @@ export function isUserConcerned(mission, user) {
 
     const list = concerned
         .split(",")
-        .map((s) => s.trim().toUpperCase())
+        .map(s => normalize(s))
         .filter(Boolean);
 
-    return list.includes(user.login.toUpperCase());
-
+    return list.includes(normalize(user.login));
 }
 
 // ======================================
-// UTILITAIRES
+// UTILITAIRES HTML
 // ======================================
 
-function escapeHtml(str) {
+function escapeHtml(value) {
     const div = document.createElement("div");
-    div.textContent = str;
+    div.textContent = String(value ?? "");
     return div.innerHTML;
 }
 
-function escapeAttr(str) {
-    return String(str)
+function escapeAttr(value) {
+    return String(value ?? "")
         .replace(/&/g, "&amp;")
         .replace(/"/g, "&quot;")
         .replace(/</g, "&lt;")
