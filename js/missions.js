@@ -1,7 +1,7 @@
 
 /* ==========================================
    BLEU4 2027 - MISSIONS
-   Missions + présences + archives 2026
+   Missions + présences + archives automatiques
 ========================================== */
 
 import {
@@ -55,12 +55,12 @@ export function getUserGroup(user) {
    3. DROITS
 ========================================== */
 
-// Création et modification des missions : CDS uniquement
+// Création des missions : CDS uniquement
 export function canCreateMission(user) {
     return isCDS(user);
 }
 
-// Modification / suppression des missions : CDS uniquement
+// Modification et suppression : CDS uniquement
 export function canManageMission(mission, user) {
     return Boolean(mission && user && isCDS(user));
 }
@@ -185,29 +185,33 @@ function getResponseFor(mission, login) {
 
 
 /* ==========================================
-   6. DATES ET ARCHIVES
+   6. DATES ET ARCHIVES AUTOMATIQUES
 ========================================== */
+
+function getTodayIso() {
+
+    const today = new Date();
+
+    return [
+        today.getFullYear(),
+        String(today.getMonth() + 1).padStart(2, "0"),
+        String(today.getDate()).padStart(2, "0")
+    ].join("-");
+}
+
+// Une mission est terminée lorsque sa date de fin
+// est strictement antérieure à aujourd'hui.
 
 export function isMissionFinished(mission) {
 
     if (!mission?.end) return false;
 
-    const today = new Date();
-
-    const localToday = [
-        today.getFullYear(),
-        String(today.getMonth() + 1).padStart(2, "0"),
-        String(today.getDate()).padStart(2, "0")
-    ].join("-");
-
-    return mission.end < localToday;
+    return String(mission.end) < getTodayIso();
 }
 
-function isArchive2026(mission) {
-    const startYear = String(mission.start || "").slice(0, 4);
-    const endYear = String(mission.end || "").slice(0, 4);
-
-    return startYear === "2026" || endYear === "2026";
+// Une mission sans date de fin reste dans la gestion.
+function isMissionActive(mission) {
+    return !isMissionFinished(mission);
 }
 
 
@@ -282,7 +286,7 @@ function getMissionPersonnel(mission, user) {
         person.active !== false
     ));
 
-    // Une mission de groupe ne concerne que ce groupe
+    // Une mission de groupe concerne ce groupe
     if (mission.group && mission.group !== "all") {
         people = people.filter(person => (
             String(person.group) === String(mission.group)
@@ -614,14 +618,15 @@ function attachMissionEvents(container, missions, user) {
                     if (isMember(user)) {
 
                         if (!isUserConcerned(mission, user)) return;
-
                         if (personLogin !== user.login) return;
 
                     } else {
 
-                        if (personLogin === String(user.displayName || user.login)) {
-                            // Le commandement peut répondre pour lui-même.
-                        } else {
+                        const ownLogin = String(
+                            user.displayName || user.login || ""
+                        );
+
+                        if (personLogin !== ownLogin) {
 
                             const person = personnelList.find(item => (
                                 String(item.login) === String(personLogin)
@@ -737,6 +742,9 @@ export function renderMissionList(missions, selectedDate, user) {
 
         if (!canSeeMission(mission, user)) return false;
 
+        // Le calendrier ne montre pas les missions terminées
+        if (!isMissionActive(mission)) return false;
+
         if (!selectedDate) return true;
 
         return (
@@ -763,7 +771,8 @@ export function renderMissionList(missions, selectedDate, user) {
 
 
 /* ==========================================
-   19. TOUTES LES MISSIONS
+   19. GESTION DES MISSIONS
+   Missions en cours et à venir uniquement
 ========================================== */
 
 export function renderAllMissions(missions, user) {
@@ -773,7 +782,7 @@ export function renderAllMissions(missions, user) {
     if (!container) return;
 
     const active = sortMissions(
-        missions.filter(mission => !isMissionFinished(mission))
+        missions.filter(isMissionActive)
     ).filter(mission => canSeeMission(mission, user));
 
     if (!active.length) {
@@ -794,7 +803,9 @@ export function renderAllMissions(missions, user) {
 
 
 /* ==========================================
-   20. ARCHIVES 2026 - CDS UNIQUEMENT
+   20. ARCHIVES
+   Toutes les missions terminées
+   CDS uniquement
 ========================================== */
 
 export function renderArchivedMissions(missions, user) {
@@ -803,14 +814,18 @@ export function renderArchivedMissions(missions, user) {
 
     if (!container || !isCDS(user)) return;
 
+    // Toutes les années sont conservées dans l'historique.
+    // Seules les missions dont la date de fin est dépassée
+    // apparaissent dans cette rubrique.
+
     const archived = sortMissions(
-        missions.filter(isArchive2026)
-    );
+        missions.filter(isMissionFinished)
+    ).reverse();
 
     if (!archived.length) {
         container.innerHTML = `
             <p class="empty-message">
-                Aucune mission de 2026 dans les archives.
+                Aucune mission terminée dans les archives.
             </p>
         `;
         return;
