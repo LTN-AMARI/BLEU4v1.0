@@ -116,7 +116,10 @@ export async function removeResponse(missionId, login) {
     const key = safeKey(login);
     const entryRef = ref(db, `missions/${missionId}/responses/${key}`);
 
-    await remove(entryRef);
+    await update(entryRef, {
+    status: "present",
+    days
+});
 }
 
 // ======================================
