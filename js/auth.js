@@ -1,17 +1,10 @@
+
 // ======================================
-// BLEU4 2027 - CONNEXION
+// BLEU4 2027 - AUTHENTIFICATION
+// Membres : grade + nom + groupe
+// Commandement : profil + code
 // ======================================
 
-const loginInput = document.getElementById("login");
-const roleSelect = document.getElementById("role");
-const groupBox = document.getElementById("groupBox");
-const groupSelect = document.getElementById("group");
-const passwordBox = document.getElementById("passwordBox");
-const passwordInput = document.getElementById("password");
-const btnLogin = document.getElementById("btnLogin");
-const loginError = document.getElementById("loginError");
-
-// Codes des profils commandement
 const COMMAND_PROFILES = {
     CDS: "scorpion2027",
     SOA: "bleucdt",
@@ -20,67 +13,134 @@ const COMMAND_PROFILES = {
     CDG3: "bleu43"
 };
 
-// Si une session existe déjà, ouvrir l'application
-const existingUser = JSON.parse(
-    localStorage.getItem("BLEU4_USER") || "null"
-);
+// ======================================
+// ELEMENTS HTML
+// ======================================
 
-if (existingUser) {
-    window.location.replace("app.html");
-}
+const roleSelect = document.getElementById("role");
+const loginInput = document.getElementById("login");
+
+const groupBox = document.getElementById("groupBox");
+const groupSelect = document.getElementById("group");
+
+const passwordBox = document.getElementById("passwordBox");
+const passwordInput = document.getElementById("password");
+
+const loginButton = document.getElementById("btnLogin");
+const loginError = document.getElementById("loginError");
 
 // ======================================
-// AFFICHAGE SELON LE TYPE DE CONNEXION
+// AFFICHAGE DU FORMULAIRE
 // ======================================
 
 function updateLoginForm() {
-    const isCommandement = roleSelect.value === "commandement";
+    const role = roleSelect?.value;
 
-    passwordBox.style.display = isCommandement ? "block" : "none";
-    groupBox.style.display = isCommandement ? "none" : "block";
+    if (groupBox) {
+        groupBox.style.display =
+            role === "membre" ? "block" : "none";
+    }
 
-    loginInput.value = "";
-    passwordInput.value = "";
-    groupSelect.value = "";
-    loginError.textContent = "";
+    if (passwordBox) {
+        passwordBox.style.display =
+            role === "commandement" ? "block" : "none";
+    }
 
-    loginInput.placeholder = isCommandement
-        ? "CDS, SOA, CDG1, CDG2 ou CDG3"
-        : "Exemple : SGT DUPONT";
+    if (loginInput) {
+        loginInput.placeholder =
+            role === "commandement"
+                ? "CDS, SOA, CDG1, CDG2 ou CDG3"
+                : "Ex : SDT PINGOUIN";
+    }
+
+    if (loginError) {
+        loginError.textContent = "";
+    }
 }
 
-roleSelect.addEventListener("change", updateLoginForm);
+roleSelect?.addEventListener("change", updateLoginForm);
+
+// ======================================
+// ERREUR
+// ======================================
+
+function showError(message) {
+    if (loginError) {
+        loginError.textContent = message;
+    } else {
+        alert(message);
+    }
+}
 
 // ======================================
 // CONNEXION
 // ======================================
 
 function login() {
-    const login = loginInput.value.trim().toUpperCase();
-    const selectedRole = roleSelect.value;
+    const role = roleSelect?.value;
+    const loginValue = loginInput?.value.trim();
 
-    loginError.textContent = "";
-
-    if (!login) {
-        loginError.textContent = "Saisis ton identifiant.";
+    if (!loginValue) {
+        showError("Saisis ton grade et ton nom ou ton profil.");
         return;
     }
 
-    // ------------------------------
+    // ----------------------------------
     // CONNEXION MEMBRE
-    // ------------------------------
+    // ----------------------------------
 
-    if (selectedRole === "membre") {
-        const group = groupSelect.value;
+    if (role === "membre") {
+        const group = groupSelect?.value;
 
-        if (!group) {
-            loginError.textContent = "Choisis ton groupe.";
+        if (!["1", "2", "3"].includes(String(group))) {
+            showError("Sélectionne ton groupe.");
             return;
         }
 
         const user = {
-            login,
+            login: loginValue,
             role: "membre",
+            group: String(group)
+        };
+
+        localStorage.setItem("BLEU4_USER", JSON.stringify(user));
+
+        window.location.href = "app.html";
+        return;
+    }
+
+    // ----------------------------------
+    // CONNEXION COMMANDEMENT
+    // ----------------------------------
+
+    if (role === "commandement") {
+        const profile = loginValue.toUpperCase();
+        const password = passwordInput?.value || "";
+
+        if (!Object.prototype.hasOwnProperty.call(COMMAND_PROFILES, profile)) {
+            showError("Profil commandement inconnu.");
+            return;
+        }
+
+        if (password !== COMMAND_PROFILES[profile]) {
+            showError("Code incorrect.");
+            if (passwordInput) {
+                passwordInput.value = "";
+                passwordInput.focus();
+            }
+            return;
+        }
+
+        let group = null;
+
+        if (profile.startsWith("CDG")) {
+            group = profile.replace("CDG", "");
+        }
+
+        const user = {
+            login: profile,
+            role: "commandement",
+            profile,
             group
         };
 
@@ -90,63 +150,31 @@ function login() {
         return;
     }
 
-    // ------------------------------
-    // CONNEXION COMMANDEMENT
-    // ------------------------------
-
-    const expectedPassword = COMMAND_PROFILES[login];
-
-    if (!expectedPassword) {
-        loginError.textContent = "Identifiant commandement inconnu.";
-        return;
-    }
-
-    if (passwordInput.value !== expectedPassword) {
-        loginError.textContent = "Code commandement incorrect.";
-        return;
-    }
-
-    const user = {
-        login,
-        role: "commandement",
-        profile: login,
-        group: login.startsWith("CDG")
-            ? login.replace("CDG", "")
-            : null
-    };
-
-    localStorage.setItem("BLEU4_USER", JSON.stringify(user));
-
-    window.location.href = "app.html";
+    showError("Sélectionne un type de connexion valide.");
 }
 
 // ======================================
-// ÉVÉNEMENTS
+// EVENEMENTS
 // ======================================
 
-btnLogin.addEventListener("click", login);
+loginButton?.addEventListener("click", login);
 
-loginInput.addEventListener("keydown", (event) => {
+passwordInput?.addEventListener("keydown", event => {
+    if (event.key === "Enter") login();
+});
+
+loginInput?.addEventListener("keydown", event => {
     if (event.key === "Enter") {
-        if (roleSelect.value === "commandement") {
-            passwordInput.focus();
-        } else {
+        if (roleSelect?.value === "membre") {
             login();
+        } else {
+            passwordInput?.focus();
         }
     }
 });
 
-passwordInput.addEventListener("keydown", (event) => {
-    if (event.key === "Enter") {
-        login();
-    }
-});
+// ======================================
+// INITIALISATION
+// ======================================
 
-groupSelect.addEventListener("keydown", (event) => {
-    if (event.key === "Enter") {
-        login();
-    }
-});
-
-// Initialisation
 updateLoginForm();
