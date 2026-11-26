@@ -7,11 +7,11 @@
 
 // CONSERVE ICI TES CODES ACTUELS
 const COMMAND_PROFILES = {
-    CDS: "REMETS_TON_CODE_CDS",
-    SOA: "REMETS_TON_CODE_SOA",
-    CDG1: "REMETS_TON_CODE_CDG1",
-    CDG2: "REMETS_TON_CODE_CDG2",
-    CDG3: "REMETS_TON_CODE_CDG3"
+    CDS: "scorpion",
+    SOA: "bleucdt",
+    CDG1: "bleu41",
+    CDG2: "bleu42",
+    CDG3: "bleu43"
 };
 
 // ======================================
