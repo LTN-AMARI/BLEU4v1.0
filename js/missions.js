@@ -1,21 +1,18 @@
 
 /* ==========================================
    BLEU4 2027 - MISSIONS
-   Gestion des missions et des présences
-   Profils : CDS / SOA / CDG1 / CDG2 / CDG3
+   Missions + présences + archives 2026
 ========================================== */
 
 import {
     setResponse,
     deleteMissionInDb,
-    updateMissionInDb,
-    setResponseDays,
-    removeResponse
+    updateMissionInDb
 } from "./firebase.js";
 
 
 /* ==========================================
-   1. DONNEES DU PERSONNEL
+   1. PERSONNEL
 ========================================== */
 
 let personnelList = [];
@@ -26,7 +23,7 @@ export function setPersonnelList(personnel) {
 
 
 /* ==========================================
-   2. IDENTIFICATION DES PROFILS
+   2. PROFILS
 ========================================== */
 
 export function isCDS(user) {
@@ -55,41 +52,26 @@ export function getUserGroup(user) {
 
 
 /* ==========================================
-   3. DROITS D'ACCES
+   3. DROITS
 ========================================== */
 
+// Création et modification des missions : CDS uniquement
 export function canCreateMission(user) {
-    return isCDS(user) || isCDG(user);
+    return isCDS(user);
 }
 
+// Modification / suppression des missions : CDS uniquement
 export function canManageMission(mission, user) {
-
-    if (!mission || !user) return false;
-
-    if (isCDS(user)) return true;
-
-    if (isCDG(user)) {
-        if (!mission.group) return false;
-
-        return (
-            mission.group !== "all" &&
-            String(mission.group) === getUserGroup(user)
-        );
-    }
-
-    return false;
+    return Boolean(mission && user && isCDS(user));
 }
 
+// Consultation des missions
 function canSeeMission(mission, user) {
 
     if (!mission || !user) return false;
 
-    // CDS et SOA : toutes les missions
-    if (isCDS(user) || isSOA(user)) {
-        return true;
-    }
+    if (isCDS(user) || isSOA(user)) return true;
 
-    // CDG : son groupe et les missions communes
     if (isCDG(user)) {
         if (!mission.group) return true;
 
@@ -99,10 +81,8 @@ function canSeeMission(mission, user) {
         );
     }
 
-    // Membres
     if (isMember(user)) {
 
-        // Anciennes missions sans groupe
         if (!mission.group) {
             return isUserConcerned(mission, user);
         }
@@ -111,6 +91,20 @@ function canSeeMission(mission, user) {
             mission.group === "all" ||
             String(mission.group) === getUserGroup(user)
         );
+    }
+
+    return false;
+}
+
+// Gestion des présences par le commandement
+function canManagePresence(user, person) {
+
+    if (!user || !person) return false;
+
+    if (isCDS(user) || isSOA(user)) return true;
+
+    if (isCDG(user)) {
+        return String(person.group) === getUserGroup(user);
     }
 
     return false;
@@ -129,9 +123,7 @@ export function isUserConcerned(mission, user) {
 
     if (
         !concerned ||
-        concerned === "Tous" ||
-        concerned === "tous" ||
-        concerned === "TOUS"
+        ["Tous", "tous", "TOUS"].includes(concerned)
     ) {
         return true;
     }
@@ -152,19 +144,17 @@ export function isUserConcerned(mission, user) {
 
 
 /* ==========================================
-   5. REPONSES DE PRESENCE
+   5. REPONSES
 ========================================== */
 
 export function getStatus(response) {
 
     if (!response) return "";
 
-    // Ancien format Firebase
     if (typeof response === "string") {
         return response;
     }
 
-    // Nouveau format Firebase
     return response.status || "";
 }
 
@@ -179,9 +169,23 @@ export function getDays(response) {
         : [];
 }
 
+function responseKey(login) {
+    return String(login ?? "")
+        .trim()
+        .replace(/[.#$[\]/]/g, "_");
+}
+
+function getResponseFor(mission, login) {
+
+    const responses = mission.responses || {};
+    const key = responseKey(login);
+
+    return responses[key] ?? responses[login] ?? null;
+}
+
 
 /* ==========================================
-   6. ETAT DES MISSIONS
+   6. DATES ET ARCHIVES
 ========================================== */
 
 export function isMissionFinished(mission) {
@@ -189,6 +193,7 @@ export function isMissionFinished(mission) {
     if (!mission?.end) return false;
 
     const today = new Date();
+
     const localToday = [
         today.getFullYear(),
         String(today.getMonth() + 1).padStart(2, "0"),
@@ -196,6 +201,13 @@ export function isMissionFinished(mission) {
     ].join("-");
 
     return mission.end < localToday;
+}
+
+function isArchive2026(mission) {
+    const startYear = String(mission.start || "").slice(0, 4);
+    const endYear = String(mission.end || "").slice(0, 4);
+
+    return startYear === "2026" || endYear === "2026";
 }
 
 
@@ -259,27 +271,47 @@ function sortMissions(missions) {
     });
 }
 
-function getActiveMissions(missions) {
-    return missions.filter(mission => !isMissionFinished(mission));
-}
 
-function getArchivedMissions(missions) {
-    return missions.filter(mission => isMissionFinished(mission));
+/* ==========================================
+   9. PERSONNEL CONCERNE PAR UNE MISSION
+========================================== */
+
+function getMissionPersonnel(mission, user) {
+
+    let people = personnelList.filter(person => (
+        person.active !== false
+    ));
+
+    // Une mission de groupe ne concerne que ce groupe
+    if (mission.group && mission.group !== "all") {
+        people = people.filter(person => (
+            String(person.group) === String(mission.group)
+        ));
+    }
+
+    // Un CDG ne gère que son groupe
+    if (isCDG(user)) {
+        people = people.filter(person => (
+            String(person.group) === getUserGroup(user)
+        ));
+    }
+
+    return people.sort((a, b) => (
+        String(a.login || "").localeCompare(
+            String(b.login || ""),
+            "fr"
+        )
+    ));
 }
 
 
 /* ==========================================
-   9. AFFICHAGE DES REPONSES
+   10. BOUTONS DE REPONSE
 ========================================== */
 
-function renderResponseButtons(mission, user) {
+function renderStatusButtons(mission, login) {
 
-    if (!isMember(user)) return "";
-
-    if (!isUserConcerned(mission, user)) return "";
-
-    const response = mission.responses?.[user.login];
-    const status = getStatus(response);
+    const status = getStatus(getResponseFor(mission, login));
 
     return `
         <div class="actions response-actions">
@@ -288,7 +320,8 @@ function renderResponseButtons(mission, user) {
                 type="button"
                 class="btn-present ${status === "present" ? "active" : ""}"
                 data-action="present"
-                data-mission="${escapeHTML(mission.id)}">
+                data-mission="${escapeHTML(mission.id)}"
+                data-person="${escapeHTML(login)}">
                 PRÉSENT
             </button>
 
@@ -296,7 +329,8 @@ function renderResponseButtons(mission, user) {
                 type="button"
                 class="btn-absent ${status === "absent" ? "active" : ""}"
                 data-action="absent"
-                data-mission="${escapeHTML(mission.id)}">
+                data-mission="${escapeHTML(mission.id)}"
+                data-person="${escapeHTML(login)}">
                 ABSENT
             </button>
 
@@ -306,80 +340,112 @@ function renderResponseButtons(mission, user) {
 
 
 /* ==========================================
-   10. AFFICHAGE DES REPONSES COMMANDEMENT
+   11. REPONSE DU MEMBRE
 ========================================== */
 
-function getPersonnelGroup(login) {
+function renderMemberResponse(mission, user) {
 
-    const person = personnelList.find(personnel => {
-        return String(personnel.login || "").toLowerCase() ===
-            String(login || "").toLowerCase();
-    });
+    if (!isMember(user)) return "";
 
-    return person ? String(person.group || "") : "";
+    if (!isUserConcerned(mission, user)) return "";
+
+    return `
+        <div class="presence-editor">
+            <h4>MA RÉPONSE</h4>
+            <p>${escapeHTML(user.login)}</p>
+            ${renderStatusButtons(mission, user.login)}
+        </div>
+    `;
 }
+
+
+/* ==========================================
+   12. REPONSE PERSONNELLE DU COMMANDEMENT
+========================================== */
+
+function renderCommandSelfResponse(mission, user) {
+
+    if (!isCDS(user) && !isSOA(user) && !isCDG(user)) {
+        return "";
+    }
+
+    const displayName = String(
+        user.displayName || user.login || ""
+    ).trim();
+
+    if (!displayName) return "";
+
+    return `
+        <div class="presence-editor command-self-response">
+            <h4>MA PRÉSENCE</h4>
+            <p>${escapeHTML(displayName)}</p>
+            ${renderStatusButtons(mission, displayName)}
+        </div>
+    `;
+}
+
+
+/* ==========================================
+   13. LISTE DES PRESENCES
+========================================== */
 
 function renderResponses(mission, user) {
 
     if (isMember(user)) return "";
 
-    const responses = mission.responses || {};
+    const people = getMissionPersonnel(mission, user);
 
-    const entries = Object.entries(responses).filter(([login]) => {
+    const rows = people.map(person => {
 
-        // SOA et CDS voient toutes les réponses
-        if (isCDS(user) || isSOA(user)) {
-            return true;
-        }
+        const login = person.login;
+        const status = getStatus(getResponseFor(mission, login));
 
-        // CDG : uniquement les membres de son groupe
-        if (isCDG(user)) {
-            return getPersonnelGroup(login) === getUserGroup(user);
-        }
+        const label = status === "present"
+            ? "PRÉSENT"
+            : status === "absent"
+                ? "ABSENT"
+                : "NON RENSEIGNÉ";
 
-        return false;
-    });
-
-    const present = entries.filter(([, response]) => {
-        return getStatus(response) === "present";
-    });
-
-    const absent = entries.filter(([, response]) => {
-        return getStatus(response) === "absent";
-    });
-
-    const responseRows = entries.map(([login, response]) => {
-
-        const status = getStatus(response);
-        const label = status === "present" ? "PRÉSENT" :
-            status === "absent" ? "ABSENT" : "NON RENSEIGNÉ";
-
-        const days = getDays(response);
+        const editable = canManagePresence(user, person);
 
         return `
             <div class="response-row">
-                <span>${escapeHTML(login)}</span>
-                <strong>${label}</strong>
-                ${
-                    days.length
-                        ? `<small>${days.map(escapeHTML).join(", ")}</small>`
-                        : ""
+
+                <div class="response-person">
+                    <strong>${escapeHTML(login)}</strong>
+                    <small>${label}</small>
+                </div>
+
+                ${editable
+                    ? renderStatusButtons(mission, login)
+                    : `<strong>${label}</strong>`
                 }
+
             </div>
         `;
-
     }).join("");
+
+    const present = people.filter(person => (
+        getStatus(getResponseFor(mission, person.login)) === "present"
+    )).length;
+
+    const absent = people.filter(person => (
+        getStatus(getResponseFor(mission, person.login)) === "absent"
+    )).length;
 
     return `
         <div class="mission-responses">
 
+            <h4>GESTION DES PRÉSENCES</h4>
+
             <div class="presence-split">
-                <span>PRÉSENTS : ${present.length}</span>
-                <span>ABSENTS : ${absent.length}</span>
+                <span>PRÉSENTS : ${present}</span>
+                <span>ABSENTS : ${absent}</span>
+                <span>TOTAL : ${people.length}</span>
             </div>
 
             <div class="response-list">
-                ${responseRows || "<p>Aucune réponse enregistrée.</p>"}
+                ${rows || "<p>Aucun personnel actif dans ce groupe.</p>"}
             </div>
 
         </div>
@@ -388,88 +454,7 @@ function renderResponses(mission, user) {
 
 
 /* ==========================================
-   11. CARTE MISSION
-========================================== */
-
-function renderMissionCard(mission, user, options = {}) {
-
-    const canManage = canManageMission(mission, user);
-    const responseButtons = renderResponseButtons(mission, user);
-
-    const description = mission.description
-        ? `<p>${escapeHTML(mission.description)}</p>`
-        : "";
-
-    const location = mission.location
-        ? `<p><strong>Lieu :</strong> ${escapeHTML(mission.location)}</p>`
-        : "";
-
-    const patracdr = mission.patracdr
-        ? renderPatracdr(mission.patracdr)
-        : "";
-
-    const responses = renderResponses(mission, user);
-
-    const managementButtons = canManage
-        ? `
-            <div class="actions management-actions">
-                <button
-                    type="button"
-                    class="btn-secondary"
-                    data-action="edit"
-                    data-mission="${escapeHTML(mission.id)}">
-                    MODIFIER
-                </button>
-
-                <button
-                    type="button"
-                    class="btn-delete"
-                    data-action="delete"
-                    data-mission="${escapeHTML(mission.id)}">
-                    SUPPRIMER
-                </button>
-            </div>
-        `
-        : "";
-
-    return `
-        <article class="mission" data-id="${escapeHTML(mission.id)}">
-
-            <div class="mission-summary">
-
-                <div>
-                    <h3>${escapeHTML(mission.title)}</h3>
-                    <p class="mission-date">
-                        ${getMissionDateLabel(mission)}
-                    </p>
-                </div>
-
-                <span class="mission-group">
-                    ${getGroupLabel(mission)}
-                </span>
-
-            </div>
-
-            <div class="mission-body">
-
-                ${description}
-                ${location}
-
-                ${patracdr}
-
-                ${responseButtons}
-                ${managementButtons}
-                ${responses}
-
-            </div>
-
-        </article>
-    `;
-}
-
-
-/* ==========================================
-   12. PATRACDR
+   14. PATRACDR
 ========================================== */
 
 function renderPatracdr(patracdr) {
@@ -511,7 +496,93 @@ function renderPatracdr(patracdr) {
 
 
 /* ==========================================
-   13. EVENEMENTS DES CARTES
+   15. CARTE MISSION REPLIABLE
+========================================== */
+
+function renderMissionCard(mission, user) {
+
+    const canManage = canManageMission(mission, user);
+
+    const description = mission.description
+        ? `<p>${escapeHTML(mission.description)}</p>`
+        : "";
+
+    const location = mission.location
+        ? `<p><strong>Lieu :</strong> ${escapeHTML(mission.location)}</p>`
+        : "";
+
+    const patracdr = mission.patracdr
+        ? renderPatracdr(mission.patracdr)
+        : "";
+
+    const managementButtons = canManage
+        ? `
+            <div class="actions management-actions">
+
+                <button
+                    type="button"
+                    class="btn-secondary"
+                    data-action="edit"
+                    data-mission="${escapeHTML(mission.id)}">
+                    MODIFIER
+                </button>
+
+                <button
+                    type="button"
+                    class="btn-delete"
+                    data-action="delete"
+                    data-mission="${escapeHTML(mission.id)}">
+                    SUPPRIMER
+                </button>
+
+            </div>
+        `
+        : "";
+
+    return `
+        <article class="mission" data-id="${escapeHTML(mission.id)}">
+
+            <details class="mission-details">
+
+                <summary class="mission-summary">
+
+                    <div>
+                        <h3>${escapeHTML(mission.title)}</h3>
+
+                        <p class="mission-date">
+                            ${getMissionDateLabel(mission)}
+                        </p>
+                    </div>
+
+                    <span class="mission-group">
+                        ${getGroupLabel(mission)}
+                    </span>
+
+                </summary>
+
+                <div class="mission-body">
+
+                    ${description}
+                    ${location}
+                    ${patracdr}
+
+                    ${renderMemberResponse(mission, user)}
+                    ${renderCommandSelfResponse(mission, user)}
+                    ${renderResponses(mission, user)}
+
+                    ${managementButtons}
+
+                </div>
+
+            </details>
+
+        </article>
+    `;
+}
+
+
+/* ==========================================
+   16. EVENEMENTS DES MISSIONS
 ========================================== */
 
 function attachMissionEvents(container, missions, user) {
@@ -520,55 +591,78 @@ function attachMissionEvents(container, missions, user) {
 
     container.querySelectorAll("[data-action]").forEach(button => {
 
-        button.addEventListener("click", async () => {
+        button.addEventListener("click", async event => {
+
+            event.preventDefault();
+            event.stopPropagation();
 
             const action = button.dataset.action;
             const missionId = button.dataset.mission;
+            const personLogin = button.dataset.person;
 
-            const mission = missions.find(item => {
-                return String(item.id) === String(missionId);
-            });
+            const mission = missions.find(item => (
+                String(item.id) === String(missionId)
+            ));
 
             if (!mission) return;
 
             try {
 
+                // Présence ou absence
                 if (action === "present" || action === "absent") {
 
-                    if (!isMember(user)) return;
+                    if (isMember(user)) {
 
-                    if (!isUserConcerned(mission, user)) return;
+                        if (!isUserConcerned(mission, user)) return;
+
+                        if (personLogin !== user.login) return;
+
+                    } else {
+
+                        if (personLogin === String(user.displayName || user.login)) {
+                            // Le commandement peut répondre pour lui-même.
+                        } else {
+
+                            const person = personnelList.find(item => (
+                                String(item.login) === String(personLogin)
+                            ));
+
+                            if (!person || !canManagePresence(user, person)) {
+                                return;
+                            }
+                        }
+                    }
+
+                    button.disabled = true;
 
                     await setResponse(
                         mission.id,
-                        user.login,
+                        personLogin,
                         action
                     );
 
                     return;
                 }
 
+                // Suppression
                 if (action === "delete") {
 
                     if (!canManageMission(mission, user)) return;
 
-                    const confirmed = confirm(
-                        `Supprimer la mission "${mission.title}" ?`
-                    );
-
-                    if (!confirmed) return;
+                    if (!confirm(`Supprimer la mission "${mission.title}" ?`)) {
+                        return;
+                    }
 
                     await deleteMissionInDb(mission.id);
-
                     return;
                 }
 
+                // Modification
                 if (action === "edit") {
 
                     if (!canManageMission(mission, user)) return;
 
-                    editMission(mission);
-
+                    await editMission(mission);
                 }
 
             } catch (error) {
@@ -579,25 +673,21 @@ function attachMissionEvents(container, missions, user) {
                     "Une erreur est survenue. Vérifie la connexion Firebase."
                 );
 
+            } finally {
+                button.disabled = false;
             }
-
         });
-
     });
-
 }
 
 
 /* ==========================================
-   14. MODIFICATION D'UNE MISSION
+   17. MODIFICATION D'UNE MISSION
 ========================================== */
 
 async function editMission(mission) {
 
-    const title = prompt(
-        "Titre de la mission :",
-        mission.title || ""
-    );
+    const title = prompt("Titre de la mission :", mission.title || "");
 
     if (title === null) return;
 
@@ -613,10 +703,7 @@ async function editMission(mission) {
 
     if (description === null) return;
 
-    const location = prompt(
-        "Lieu :",
-        mission.location || ""
-    );
+    const location = prompt("Lieu :", mission.location || "");
 
     if (location === null) return;
 
@@ -637,7 +724,7 @@ async function editMission(mission) {
 
 
 /* ==========================================
-   15. MISSIONS DU JOUR - CALENDRIER
+   18. MISSIONS DU JOUR - CALENDRIER
 ========================================== */
 
 export function renderMissionList(missions, selectedDate, user) {
@@ -656,7 +743,6 @@ export function renderMissionList(missions, selectedDate, user) {
             mission.start <= selectedDate &&
             mission.end >= selectedDate
         );
-
     });
 
     if (!visible.length) {
@@ -668,16 +754,16 @@ export function renderMissionList(missions, selectedDate, user) {
         return;
     }
 
-    container.innerHTML = visible.map(mission => {
-        return renderMissionCard(mission, user);
-    }).join("");
+    container.innerHTML = visible.map(mission => (
+        renderMissionCard(mission, user)
+    )).join("");
 
     attachMissionEvents(container, visible, user);
 }
 
 
 /* ==========================================
-   16. TOUTES LES MISSIONS
+   19. TOUTES LES MISSIONS
 ========================================== */
 
 export function renderAllMissions(missions, user) {
@@ -687,7 +773,7 @@ export function renderAllMissions(missions, user) {
     if (!container) return;
 
     const active = sortMissions(
-        getActiveMissions(missions)
+        missions.filter(mission => !isMissionFinished(mission))
     ).filter(mission => canSeeMission(mission, user));
 
     if (!active.length) {
@@ -699,100 +785,40 @@ export function renderAllMissions(missions, user) {
         return;
     }
 
-    container.innerHTML = active.map(mission => {
-        return renderMissionCard(mission, user);
-    }).join("");
+    container.innerHTML = active.map(mission => (
+        renderMissionCard(mission, user)
+    )).join("");
 
     attachMissionEvents(container, active, user);
 }
 
 
 /* ==========================================
-   17. MISSIONS ARCHIVEES
+   20. ARCHIVES 2026 - CDS UNIQUEMENT
 ========================================== */
 
 export function renderArchivedMissions(missions, user) {
 
     const container = getElement("archivedMissionsList");
 
-    if (!container) return;
+    if (!container || !isCDS(user)) return;
 
     const archived = sortMissions(
-        getArchivedMissions(missions)
-    ).filter(mission => canSeeMission(mission, user));
+        missions.filter(isArchive2026)
+    );
 
     if (!archived.length) {
         container.innerHTML = `
             <p class="empty-message">
-                Aucune mission archivée.
+                Aucune mission de 2026 dans les archives.
             </p>
         `;
         return;
     }
 
-    container.innerHTML = archived.map(mission => {
-        return renderMissionCard(mission, user);
-    }).join("");
+    container.innerHTML = archived.map(mission => (
+        renderMissionCard(mission, user)
+    )).join("");
 
     attachMissionEvents(container, archived, user);
-}
-
-
-/* ==========================================
-   18. COMPTEUR DE PRESENCE
-========================================== */
-
-export function renderPresenceCounter(missions, user) {
-
-    const container = getElement("presenceCounterList");
-
-    if (!container) return;
-
-    const visible = sortMissions(missions).filter(mission => {
-        return canSeeMission(mission, user);
-    });
-
-    if (!visible.length) {
-        container.innerHTML = `
-            <p class="empty-message">
-                Aucune donnée de présence.
-            </p>
-        `;
-        return;
-    }
-
-    container.innerHTML = visible.map(mission => {
-
-        const responses = Object.entries(
-            mission.responses || {}
-        ).filter(([login]) => {
-
-            if (isCDS(user) || isSOA(user)) {
-                return true;
-            }
-
-            if (isCDG(user)) {
-                return getPersonnelGroup(login) === getUserGroup(user);
-            }
-
-            return false;
-        });
-
-        const present = responses.filter(([, response]) => {
-            return getStatus(response) === "present";
-        }).length;
-
-        const absent = responses.filter(([, response]) => {
-            return getStatus(response) === "absent";
-        }).length;
-
-        return `
-            <div class="response-row">
-                <strong>${escapeHTML(mission.title)}</strong>
-                <span>Présents : ${present}</span>
-                <span>Absents : ${absent}</span>
-            </div>
-        `;
-
-    }).join("");
 }
