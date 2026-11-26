@@ -1,74 +1,152 @@
 // ======================================
-// BLEU4 v2 - AUTH (page de connexion)
+// BLEU4 2027 - CONNEXION
 // ======================================
 
 const loginInput = document.getElementById("login");
 const roleSelect = document.getElementById("role");
+const groupBox = document.getElementById("groupBox");
+const groupSelect = document.getElementById("group");
 const passwordBox = document.getElementById("passwordBox");
 const passwordInput = document.getElementById("password");
 const btnLogin = document.getElementById("btnLogin");
+const loginError = document.getElementById("loginError");
 
-// ⚠️ Sécurité "front-end only" : suffisant pour filtrer
-// l'accès dans une petite équipe, mais pas un vrai rempart.
-// Si besoin d'une vraie sécurité, il faudra passer par
-// Firebase Auth plus tard.
-const COMMANDEMENT_CODE = "BLEU4ADMIN";
+// Codes des profils commandement
+const COMMAND_PROFILES = {
+    CDS: "scorpion2027",
+    SOA: "bleucdt",
+    CDG1: "bleu41",
+    CDG2: "bleu42",
+    CDG3: "bleu43"
+};
 
-// ======================================
-// Si déjà connecté, redirection directe
-// ======================================
-
-const existingUser = JSON.parse(localStorage.getItem("BLEU4_USER") || "null");
+// Si une session existe déjà, ouvrir l'application
+const existingUser = JSON.parse(
+    localStorage.getItem("BLEU4_USER") || "null"
+);
 
 if (existingUser) {
-    window.location.href = "app.html";
+    window.location.replace("app.html");
 }
 
 // ======================================
-// Afficher le champ mot de passe
-// uniquement pour le commandement
+// AFFICHAGE SELON LE TYPE DE CONNEXION
 // ======================================
 
-roleSelect.addEventListener("change", () => {
+function updateLoginForm() {
+    const isCommandement = roleSelect.value === "commandement";
 
-    passwordBox.style.display =
-        roleSelect.value === "commandement" ? "block" : "none";
+    passwordBox.style.display = isCommandement ? "block" : "none";
+    groupBox.style.display = isCommandement ? "none" : "block";
 
-});
+    loginInput.value = "";
+    passwordInput.value = "";
+    groupSelect.value = "";
+    loginError.textContent = "";
+
+    loginInput.placeholder = isCommandement
+        ? "CDS, SOA, CDG1, CDG2 ou CDG3"
+        : "Exemple : SGT DUPONT";
+}
+
+roleSelect.addEventListener("change", updateLoginForm);
 
 // ======================================
-// Connexion
+// CONNEXION
 // ======================================
 
-btnLogin.addEventListener("click", () => {
-
+function login() {
     const login = loginInput.value.trim().toUpperCase();
-    const role = roleSelect.value;
-    const password = passwordInput.value;
+    const selectedRole = roleSelect.value;
+
+    loginError.textContent = "";
 
     if (!login) {
-        alert("Entre ton GRADE NOM");
+        loginError.textContent = "Saisis ton identifiant.";
         return;
     }
 
-    if (role === "commandement" && password !== COMMANDEMENT_CODE) {
-        alert("Code commandement incorrect");
+    // ------------------------------
+    // CONNEXION MEMBRE
+    // ------------------------------
+
+    if (selectedRole === "membre") {
+        const group = groupSelect.value;
+
+        if (!group) {
+            loginError.textContent = "Choisis ton groupe.";
+            return;
+        }
+
+        const user = {
+            login,
+            role: "membre",
+            group
+        };
+
+        localStorage.setItem("BLEU4_USER", JSON.stringify(user));
+
+        window.location.href = "app.html";
         return;
     }
 
-    const user = { login, role };
+    // ------------------------------
+    // CONNEXION COMMANDEMENT
+    // ------------------------------
+
+    const expectedPassword = COMMAND_PROFILES[login];
+
+    if (!expectedPassword) {
+        loginError.textContent = "Identifiant commandement inconnu.";
+        return;
+    }
+
+    if (passwordInput.value !== expectedPassword) {
+        loginError.textContent = "Code commandement incorrect.";
+        return;
+    }
+
+    const user = {
+        login,
+        role: "commandement",
+        profile: login,
+        group: login.startsWith("CDG")
+            ? login.replace("CDG", "")
+            : null
+    };
 
     localStorage.setItem("BLEU4_USER", JSON.stringify(user));
 
     window.location.href = "app.html";
+}
 
+// ======================================
+// ÉVÉNEMENTS
+// ======================================
+
+btnLogin.addEventListener("click", login);
+
+loginInput.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") {
+        if (roleSelect.value === "commandement") {
+            passwordInput.focus();
+        } else {
+            login();
+        }
+    }
 });
 
-// Permet aussi de valider avec la touche Entrée
-passwordInput.addEventListener("keydown", (e) => {
-    if (e.key === "Enter") btnLogin.click();
+passwordInput.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") {
+        login();
+    }
 });
 
-loginInput.addEventListener("keydown", (e) => {
-    if (e.key === "Enter") btnLogin.click();
+groupSelect.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") {
+        login();
+    }
 });
+
+// Initialisation
+updateLoginForm();
