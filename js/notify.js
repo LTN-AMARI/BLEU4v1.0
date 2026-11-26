@@ -1,31 +1,29 @@
+
 // ======================================
-// BLEU4 v2 - NOTIFICATIONS (en-appli)
-// Alerte sonore + bannière visuelle quand une
-// nouvelle mission apparaît, PENDANT que l'appli
-// est ouverte sur le téléphone/ordinateur.
-//
-// ⚠️ Ce n'est PAS une notification push classique :
-// ça ne sonnera pas si le téléphone est verrouillé
-// ou l'appli totalement fermée. Une vraie notification
-// push nécessite Firebase Cloud Messaging + un plan
-// Firebase payant (Blaze) + une Cloud Function.
+// BLEU4 v2 - NOTIFICATIONS 2027
+// Son + bannière + notification système
 // ======================================
 
 let audioCtx = null;
 
 // ======================================
-// SON (deux bips, généré directement,
-// aucun fichier audio à héberger)
+// ALERTE SONORE
+// Deux bips
 // ======================================
 
-export function playAlertSound() {
+export async function playAlertSound() {
 
     try {
 
-        audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+        const AudioContextClass =
+            window.AudioContext || window.webkitAudioContext;
+
+        if (!AudioContextClass) return;
+
+        audioCtx = audioCtx || new AudioContextClass();
 
         if (audioCtx.state === "suspended") {
-            audioCtx.resume();
+            await audioCtx.resume();
         }
 
         const now = audioCtx.currentTime;
@@ -39,8 +37,16 @@ export function playAlertSound() {
             osc.frequency.value = i === 0 ? 880 : 1046;
 
             gain.gain.setValueAtTime(0.0001, now + offset);
-            gain.gain.exponentialRampToValueAtTime(0.3, now + offset + 0.02);
-            gain.gain.exponentialRampToValueAtTime(0.0001, now + offset + 0.16);
+
+            gain.gain.exponentialRampToValueAtTime(
+                0.3,
+                now + offset + 0.02
+            );
+
+            gain.gain.exponentialRampToValueAtTime(
+                0.0001,
+                now + offset + 0.16
+            );
 
             osc.connect(gain);
             gain.connect(audioCtx.destination);
@@ -55,11 +61,10 @@ export function playAlertSound() {
         console.error("Son d'alerte indisponible :", err);
 
     }
-
 }
 
 // ======================================
-// BANNIERE VISUELLE (dans la page)
+// BANNIERE VISUELLE
 // ======================================
 
 export function showMissionBanner(message) {
@@ -67,52 +72,82 @@ export function showMissionBanner(message) {
     let banner = document.getElementById("missionAlertBanner");
 
     if (!banner) {
+
         banner = document.createElement("div");
+
         banner.id = "missionAlertBanner";
         banner.className = "mission-alert-banner";
+
         document.body.appendChild(banner);
     }
 
-    banner.innerText = message;
+    banner.textContent = message;
+
     banner.classList.add("visible");
 
     clearTimeout(banner._hideTimeout);
 
     banner._hideTimeout = setTimeout(() => {
-        banner.classList.remove("visible");
-    }, 6000);
 
+        banner.classList.remove("visible");
+
+    }, 6000);
 }
 
 // ======================================
-// NOTIFICATION SYSTEME (si le navigateur
-// le permet et que l'utilisateur a autorisé) —
-// bonus : marche même onglet en arrière-plan
-// sur certains navigateurs (pas iPhone/Safari).
+// AUTORISATION NOTIFICATIONS
 // ======================================
 
-export function requestNotificationPermission() {
+export async function requestNotificationPermission() {
 
-    if (typeof Notification === "undefined") return;
+    if (!("Notification" in window)) return;
 
     if (Notification.permission === "default") {
-        Notification.requestPermission().catch(() => {});
-    }
 
+        try {
+
+            await Notification.requestPermission();
+
+        } catch (err) {
+
+            console.error(
+                "Autorisation notification impossible :",
+                err
+            );
+        }
+    }
 }
+
+// ======================================
+// NOTIFICATION SYSTEME
+// ======================================
 
 export function showSystemNotification(title, body) {
 
-    if (typeof Notification === "undefined") return;
+    if (!("Notification" in window)) return;
+
     if (Notification.permission !== "granted") return;
 
     try {
-        new Notification(title, {
-            body,
-            icon: "assets/logo-icon.png"
-        });
-    } catch (err) {
-        console.error("Notification système impossible :", err);
-    }
 
+        const notification = new Notification(title, {
+            body,
+            icon: "assets/logo-icon.png",
+            tag: "bleu4-mission"
+        });
+
+        notification.onclick = () => {
+
+            window.focus();
+            notification.close();
+
+        };
+
+    } catch (err) {
+
+        console.error(
+            "Notification système impossible :",
+            err
+        );
+    }
 }
