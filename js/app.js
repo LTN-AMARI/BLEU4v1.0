@@ -2,6 +2,7 @@
 /* ==========================================
    BLEU4 2027 - APPLICATION PRINCIPALE
    Missions + Calendrier + Personnel
+   Gestion automatique des archives
 ========================================== */
 
 import {
@@ -82,7 +83,21 @@ function getProfileLabel() {
 
 
 /* ==========================================
-   2. ENTETE
+   2. OUTIL HTML
+========================================== */
+
+function escapeHTML(value) {
+    return String(value ?? "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+}
+
+
+/* ==========================================
+   3. ENTETE
 ========================================== */
 
 const userInfo = document.getElementById("userInfo");
@@ -103,7 +118,7 @@ logoutBtn?.addEventListener("click", () => {
 
 
 /* ==========================================
-   3. ECRAN DE CHARGEMENT
+   4. ECRAN DE CHARGEMENT
 ========================================== */
 
 const splashStart = Date.now();
@@ -132,7 +147,7 @@ setTimeout(hideSplashScreen, 8000);
 
 
 /* ==========================================
-   4. ELEMENTS HTML
+   5. ELEMENTS HTML
 ========================================== */
 
 const createBox = document.getElementById("createMissionBox");
@@ -152,7 +167,7 @@ const missionGroupSelect = document.getElementById("mGroup");
 
 
 /* ==========================================
-   5. AFFICHAGE SELON LE PROFIL
+   6. AFFICHAGE SELON LE PROFIL
 ========================================== */
 
 // Création réservée au CDS
@@ -160,13 +175,13 @@ if (createBox) {
     createBox.style.display = canCreate ? "block" : "none";
 }
 
-// Liste de toutes les missions : commandement
+// Gestion des missions : commandement
 if (allMissionsBox) {
     allMissionsBox.style.display =
         commandMode ? "block" : "none";
 }
 
-// Archives 2026 : CDS uniquement
+// Archives : CDS uniquement
 if (archivedMissionsBox) {
     archivedMissionsBox.style.display =
         isCDS(user) ? "block" : "none";
@@ -190,7 +205,7 @@ if (missionGroupSelect) {
 
 
 /* ==========================================
-   6. VISIBILITE DES MISSIONS
+   7. VISIBILITE DES MISSIONS
 ========================================== */
 
 function canSeeMissionForUser(mission) {
@@ -224,7 +239,7 @@ function canSeeMissionForUser(mission) {
 
 
 /* ==========================================
-   7. SECTIONS REPLIABLES
+   8. SECTIONS REPLIABLES
 ========================================== */
 
 document.querySelectorAll(".section-toggle").forEach(title => {
@@ -235,10 +250,12 @@ document.querySelectorAll(".section-toggle").forEach(title => {
 
 
 /* ==========================================
-   8. ETAT GENERAL
+   9. ETAT GENERAL
 ========================================== */
 
 let allMissions = [];
+let activeMissions = [];
+let archivedMissions = [];
 let visibleMissions = [];
 let personnelData = [];
 
@@ -248,48 +265,110 @@ let knownResponses = null;
 
 
 /* ==========================================
-   9. RAFRAICHISSEMENT
+   10. SEPARATION AUTOMATIQUE
+========================================== */
+
+// Une mission reste dans la gestion jusqu'à
+// la date de fin incluse.
+//
+// Dès le lendemain de sa date de fin,
+// elle apparaît dans les archives.
+//
+// Aucun déplacement ou effacement Firebase.
+
+function separateMissionsByDate(missions) {
+
+    const today = getTodayIso();
+
+    activeMissions = [];
+    archivedMissions = [];
+
+    missions.forEach(mission => {
+
+        const endDate = String(
+            mission.end || mission.start || ""
+        );
+
+        // Une mission sans date exploitable reste
+        // dans la gestion pour éviter de la masquer.
+        if (!endDate || !/^\d{4}-\d{2}-\d{2}$/.test(endDate)) {
+            activeMissions.push(mission);
+            return;
+        }
+
+        if (endDate < today) {
+            archivedMissions.push(mission);
+        } else {
+            activeMissions.push(mission);
+        }
+    });
+
+    activeMissions.sort((a, b) => {
+        return String(a.start || "").localeCompare(
+            String(b.start || "")
+        );
+    });
+
+    archivedMissions.sort((a, b) => {
+        return String(b.end || b.start || "").localeCompare(
+            String(a.end || a.start || "")
+        );
+    });
+}
+
+
+/* ==========================================
+   11. RAFRAICHISSEMENT
 ========================================== */
 
 function refreshViews() {
+
+    separateMissionsByDate(allMissions);
+
+    // Calendrier : missions en cours et à venir
+    visibleMissions = activeMissions.filter(
+        mission => canSeeMissionForUser(mission)
+    );
 
     setCalendarMissions(visibleMissions);
 
     const selectedDate = getSelectedDate();
 
     if (selectedDate) {
-        renderMissionList(allMissions, selectedDate, user);
+        renderMissionList(activeMissions, selectedDate, user);
     }
 
+    // Gestion : uniquement missions non terminées
     if (commandMode) {
-        renderAllMissions(allMissions, user);
+        renderAllMissions(activeMissions, user);
+    }
 
-        if (isCDS(user)) {
-            renderArchivedMissions(allMissions, user);
-        }
+    // Archives : uniquement CDS
+    if (isCDS(user)) {
+        renderArchivedMissions(archivedMissions, user);
     }
 }
 
 
 /* ==========================================
-   10. CALENDRIER
+   12. CALENDRIER
 ========================================== */
 
 initCalendar(date => {
-    renderMissionList(allMissions, date, user);
+    renderMissionList(activeMissions, date, user);
 });
 
 document.addEventListener("bleu4-date-selected", event => {
     const date = event.detail?.date;
 
     if (date) {
-        renderMissionList(allMissions, date, user);
+        renderMissionList(activeMissions, date, user);
     }
 });
 
 
 /* ==========================================
-   11. GESTION DU PERSONNEL
+   13. GESTION DU PERSONNEL
 ========================================== */
 
 const personnelBox = document.getElementById("personnelBox");
@@ -541,21 +620,7 @@ personnelFilter?.addEventListener("change", renderPersonnel);
 
 
 /* ==========================================
-   12. OUTIL HTML
-========================================== */
-
-function escapeHTML(value) {
-    return String(value ?? "")
-        .replaceAll("&", "&amp;")
-        .replaceAll("<", "&lt;")
-        .replaceAll(">", "&gt;")
-        .replaceAll('"', "&quot;")
-        .replaceAll("'", "&#039;");
-}
-
-
-/* ==========================================
-   13. ECOUTE FIREBASE PERSONNEL
+   14. ECOUTE FIREBASE PERSONNEL
 ========================================== */
 
 listenPersonnel(personnel => {
@@ -572,7 +637,7 @@ listenPersonnel(personnel => {
 
 
 /* ==========================================
-   14. NOTIFICATIONS EN ATTENTE
+   15. NOTIFICATIONS EN ATTENTE
 ========================================== */
 
 const pendingBanner = document.getElementById("pendingBanner");
@@ -611,7 +676,7 @@ document.addEventListener("click", () => {
 
 
 /* ==========================================
-   15. MISSIONS EN ATTENTE
+   16. MISSIONS EN ATTENTE
 ========================================== */
 
 function getPendingMissions(missions) {
@@ -634,7 +699,7 @@ function getPendingMissions(missions) {
 
 
 /* ==========================================
-   16. DETECTION NOUVELLES MISSIONS
+   17. DETECTION NOUVELLES MISSIONS
 ========================================== */
 
 function detectNewMissions(missions) {
@@ -668,7 +733,7 @@ function detectNewMissions(missions) {
 
 
 /* ==========================================
-   17. DETECTION NOUVELLES REPONSES
+   18. DETECTION NOUVELLES REPONSES
 ========================================== */
 
 function detectNewResponses(missions) {
@@ -714,14 +779,18 @@ function detectNewResponses(missions) {
 
 
 /* ==========================================
-   18. ECOUTE FIREBASE MISSIONS
+   19. ECOUTE FIREBASE MISSIONS
 ========================================== */
 
 listenMissions(missions => {
 
     allMissions = Array.isArray(missions) ? missions : [];
 
-    visibleMissions = allMissions.filter(
+    // Séparation automatique selon la date de fin
+    separateMissionsByDate(allMissions);
+
+    // Missions visibles dans le calendrier
+    visibleMissions = activeMissions.filter(
         mission => canSeeMissionForUser(mission)
     );
 
@@ -729,11 +798,12 @@ listenMissions(missions => {
 
     refreshViews();
 
-    detectNewMissions(allMissions);
-    detectNewResponses(allMissions);
+    // Notifications uniquement pour les missions actives
+    detectNewMissions(activeMissions);
+    detectNewResponses(activeMissions);
 
     if (memberMode) {
-        updatePendingBanner(getPendingMissions(allMissions));
+        updatePendingBanner(getPendingMissions(activeMissions));
     }
 
     hideSplashScreen();
@@ -746,7 +816,7 @@ listenMissions(missions => {
 
 
 /* ==========================================
-   19. PATRACDR
+   20. PATRACDR
 ========================================== */
 
 const patracdrToggle = document.getElementById("patracdrToggle");
@@ -798,7 +868,7 @@ function resetPatracdrForm() {
 
 
 /* ==========================================
-   20. FORMATAGE DES DATES
+   21. FORMATAGE DES DATES
 ========================================== */
 
 autoFormatDateInput(mStart);
@@ -806,7 +876,7 @@ autoFormatDateInput(mEnd);
 
 
 /* ==========================================
-   21. CREATION D'UNE MISSION
+   22. CREATION D'UNE MISSION
 ========================================== */
 
 createBtn?.addEventListener("click", async () => {
@@ -881,10 +951,8 @@ createBtn?.addEventListener("click", async () => {
 
 
 /* ==========================================
-   22. FIN
+   23. FIN
 ========================================== */
 
 console.log("BLEU4 2027 initialisé.");
 console.log("Profil :", getProfileLabel());
-
-
