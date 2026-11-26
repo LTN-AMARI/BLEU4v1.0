@@ -1,22 +1,18 @@
+
 <!DOCTYPE html>
 <html lang="fr">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>BLEU4 2027</title>
+
+    <title>BLEU4 2027 - Connexion</title>
+
     <meta name="theme-color" content="#0d0d0d">
+    <meta name="description" content="BLEU4 - Gestion des activités">
 
     <link rel="manifest" href="manifest.json">
-    <link rel="icon" href="assets/logo.png?v=2">
-    <link rel="apple-touch-icon" href="assets/logo-icon.png?v=2">
-
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-title" content="BLEU4">
-
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Oswald:wght@400;600;700&display=swap" rel="stylesheet">
-
+    <link rel="icon" href="assets/logo.png">
     <link rel="stylesheet" href="css/style.css">
 </head>
 
@@ -24,57 +20,69 @@
 
     <main class="login-container">
 
-        <div class="logo-block">
-            <img src="assets/logo.png?v=2" alt="BLEU4" class="login-logo">
+        <div class="login-logo">
+            <img src="assets/logo.png" alt="BLEU4">
             <h1>BLEU4</h1>
-            <p>GESTION DES ACTIVITÉS</p>
-            <p class="login-year">2027</p>
+            <p>GESTION DES ACTIVITÉS 2027</p>
         </div>
 
-        <div class="login-form">
+        <section class="login-panel">
 
-            <label for="role">Type de connexion</label>
-            <select id="role">
-                <option value="membre">Membre</option>
-                <option value="commandement">Commandement</option>
-            </select>
+            <h2>CONNEXION</h2>
 
-            <label for="login">Identifiant</label>
-            <input
-                id="login"
-                type="text"
-                placeholder="GRADE NOM ou identifiant"
-                autocomplete="username"
-                autocapitalize="characters"
-            >
+            <div class="form-group">
+                <label for="role">Type de connexion</label>
 
-            <div id="groupBox">
+                <select id="role">
+                    <option value="membre">MEMBRE</option>
+                    <option value="commandement">COMMANDEMENT</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="login">Grade / Nom ou profil</label>
+
+                <input
+                    type="text"
+                    id="login"
+                    placeholder="Ex : SDT PINGOUIN"
+                    autocomplete="username"
+                    required
+                >
+            </div>
+
+            <div id="groupBox" class="form-group">
                 <label for="group">Groupe</label>
+
                 <select id="group">
-                    <option value="">Choisir un groupe</option>
                     <option value="1">Groupe 1</option>
                     <option value="2">Groupe 2</option>
                     <option value="3">Groupe 3</option>
                 </select>
             </div>
 
-            <div id="passwordBox" style="display:none;">
-                <label for="password">Code commandement</label>
+            <div id="passwordBox" class="form-group" style="display:none;">
+                <label for="password">Code d'accès</label>
+
                 <input
-                    id="password"
                     type="password"
+                    id="password"
                     placeholder="Code d'accès"
                     autocomplete="current-password"
                 >
             </div>
 
-            <button id="btnLogin" type="button">
-                CONNEXION
+            <p id="loginError" class="login-error"></p>
+
+            <button id="btnLogin" class="btn-primary">
+                SE CONNECTER
             </button>
 
-            <p id="loginError" class="login-error" role="alert"></p>
+        </section>
 
-        </div>
+        <footer class="login-footer">
+            BLEU4 — 2027
+        </footer>
 
     </main>
 
