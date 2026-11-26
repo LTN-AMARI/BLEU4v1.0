@@ -1,5 +1,6 @@
+
 // ======================================
-// BLEU4 v2 - CALENDRIER
+// BLEU4 v2 - CALENDRIER 2027
 // ======================================
 
 const MONTHS = [
@@ -24,64 +25,70 @@ let onSelectCallback = null;
 
 // ======================================
 // INITIALISATION
-// (appelée une seule fois par app.js)
 // ======================================
 
 export function initCalendar(onDateSelected) {
 
     onSelectCallback = onDateSelected;
 
-    document.getElementById("prevMonth").addEventListener("click", () => {
+    const previous = document.getElementById("prevMonth");
+    const next = document.getElementById("nextMonth");
 
-        currentMonth--;
+    if (previous) {
+        previous.addEventListener("click", () => {
 
-        if (currentMonth < 0) {
-            currentMonth = 11;
-            currentYear--;
-        }
+            currentMonth--;
 
-        renderCalendar();
+            if (currentMonth < 0) {
+                currentMonth = 11;
+                currentYear--;
+            }
 
-    });
+            renderCalendar();
+        });
+    }
 
-    document.getElementById("nextMonth").addEventListener("click", () => {
+    if (next) {
+        next.addEventListener("click", () => {
 
-        currentMonth++;
+            currentMonth++;
 
-        if (currentMonth > 11) {
-            currentMonth = 0;
-            currentYear++;
-        }
+            if (currentMonth > 11) {
+                currentMonth = 0;
+                currentYear++;
+            }
 
-        renderCalendar();
-
-    });
+            renderCalendar();
+        });
+    }
 
     renderCalendar();
-
 }
 
 // ======================================
-// Reçoit les missions depuis app.js
-// (pas de lecture Firebase ici, juste un affichage)
+// MISSIONS
 // ======================================
 
 export function setCalendarMissions(newMissions) {
 
-    missions = newMissions || [];
+    missions = Array.isArray(newMissions)
+        ? newMissions
+        : [];
 
     renderCalendar();
-
 }
+
+// ======================================
+// DATE SELECTIONNEE
+// ======================================
 
 export function getSelectedDate() {
 
     return selectedDate;
-
 }
 
 // ======================================
-// RENDU
+// RENDU DU CALENDRIER
 // ======================================
 
 function renderCalendar() {
@@ -89,33 +96,53 @@ function renderCalendar() {
     const calendar = document.getElementById("calendar");
     const title = document.getElementById("monthTitle");
 
-    if (!calendar) return;
+    if (!calendar || !title) return;
 
     calendar.innerHTML = "";
 
-    title.innerText = `${MONTHS[currentMonth]} ${currentYear}`;
+    title.innerText =
+        `${MONTHS[currentMonth]} ${currentYear}`;
 
-    const firstDay = new Date(currentYear, currentMonth, 1);
+    const firstDay = new Date(
+        currentYear,
+        currentMonth,
+        1
+    );
 
     let start = firstDay.getDay();
-    start = start === 0 ? 6 : start - 1; // lundi = premier jour
 
-    const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+    // Lundi = premier jour
+    start = start === 0 ? 6 : start - 1;
 
-    // jours vides avant le 1er du mois
+    const daysInMonth = new Date(
+        currentYear,
+        currentMonth + 1,
+        0
+    ).getDate();
+
+    // ==================================
+    // JOURS VIDES AVANT LE 1ER
+    // ==================================
+
     for (let i = 0; i < start; i++) {
 
         const empty = document.createElement("div");
-        empty.className = "day empty";
-        calendar.appendChild(empty);
 
+        empty.className = "day empty";
+
+        calendar.appendChild(empty);
     }
 
     const today = new Date();
 
+    // ==================================
+    // JOURS DU MOIS
+    // ==================================
+
     for (let d = 1; d <= daysInMonth; d++) {
 
         const day = document.createElement("div");
+
         day.className = "day";
 
         const date =
@@ -123,6 +150,7 @@ function renderCalendar() {
 
         day.dataset.date = date;
 
+        // Date du jour
         if (
             today.getDate() === d &&
             today.getMonth() === currentMonth &&
@@ -131,35 +159,52 @@ function renderCalendar() {
             day.classList.add("today");
         }
 
+        // Date sélectionnée
         if (date === selectedDate) {
             day.classList.add("selected");
         }
 
+        // Numéro du jour
         const number = document.createElement("div");
+
         number.className = "day-number";
         number.innerText = d;
+
         day.appendChild(number);
 
-        // pastilles missions
+        // ==================================
+        // PASTILLES DES MISSIONS
+        // ==================================
+
         const dots = document.createElement("div");
+
         dots.className = "dots";
 
-        missions.forEach((m, index) => {
+        missions.forEach((mission, index) => {
 
-            if (!m.start || !m.end) return;
+            if (!mission.start || !mission.end) return;
 
-            if (date >= m.start && date <= m.end) {
+            if (
+                date >= mission.start &&
+                date <= mission.end
+            ) {
 
                 const dot = document.createElement("div");
+
                 dot.className = "dot";
-                dot.style.background = COLORS[index % COLORS.length];
+
+                dot.style.background =
+                    COLORS[index % COLORS.length];
+
                 dots.appendChild(dot);
-
             }
-
         });
 
         day.appendChild(dots);
+
+        // ==================================
+        // SELECTION D'UNE DATE
+        // ==================================
 
         day.addEventListener("click", () => {
 
@@ -167,18 +212,17 @@ function renderCalendar() {
 
             document
                 .querySelectorAll(".day")
-                .forEach((x) => x.classList.remove("selected"));
+                .forEach(element => {
+                    element.classList.remove("selected");
+                });
 
             day.classList.add("selected");
 
             if (onSelectCallback) {
                 onSelectCallback(date);
             }
-
         });
 
         calendar.appendChild(day);
-
     }
-
 }
