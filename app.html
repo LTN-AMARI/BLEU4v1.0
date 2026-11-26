@@ -9,53 +9,57 @@
     <title>BLEU4 2027</title>
 
     <meta name="theme-color" content="#0d0d0d">
-    <meta name="description" content="BLEU4 - Gestion des activités">
 
     <link rel="manifest" href="manifest.json">
-    <link rel="icon" href="assets/logo.png">
+    <link rel="icon" href="assets/logo.png?v=2">
     <link rel="stylesheet" href="css/style.css">
 </head>
 
-<body>
+<body class="app-page">
 
     <!-- ==================================
          ECRAN DE CHARGEMENT
     =================================== -->
 
     <div id="splashScreen">
-        <img src="assets/logo.png" alt="BLEU4" class="splash-logo">
+        <img class="splash-logo" src="assets/logo.png" alt="BLEU4">
         <h1>BLEU4</h1>
         <p>GESTION DES ACTIVITÉS</p>
     </div>
+
 
     <!-- ==================================
          ENTETE
     =================================== -->
 
     <header class="app-header">
+
         <div class="header-brand">
             <img src="assets/logo.png" alt="BLEU4">
             <div>
-                <h1>BLEU4</h1>
-                <p>GESTION DES ACTIVITÉS 2027</p>
+                <h1>BLEU4 2027</h1>
+                <p>GESTION DES ACTIVITÉS</p>
             </div>
         </div>
 
         <div class="header-user">
             <span id="userInfo"></span>
-            <button id="logoutBtn" class="btn-secondary">
-                Déconnexion
+            <button id="logoutBtn" class="btn-secondary" type="button">
+                DÉCONNEXION
             </button>
         </div>
+
     </header>
+
 
     <main class="app-container">
 
         <!-- ==================================
-             ALERTES
+             NOTIFICATIONS
         =================================== -->
 
         <div id="pendingBanner" class="pending-banner hidden"></div>
+
 
         <!-- ==================================
              CALENDRIER
@@ -63,188 +67,256 @@
 
         <section class="panel calendar-panel">
 
-            <div class="section-heading">
-                <h2>CALENDRIER</h2>
+            <h2>CALENDRIER DES ACTIVITÉS</h2>
 
-                <div class="calendar-navigation">
-                    <button id="prevMonth" class="btn-secondary" aria-label="Mois précédent">
-                        &#10094;
-                    </button>
+            <div class="calendar-navigation">
 
-                    <h3 id="monthTitle"></h3>
+                <button id="prevMonth" type="button"
+                    class="btn-secondary">
+                    ◀
+                </button>
 
-                    <button id="nextMonth" class="btn-secondary" aria-label="Mois suivant">
-                        &#10095;
-                    </button>
-                </div>
+                <h3 id="monthTitle"></h3>
+
+                <button id="nextMonth" type="button"
+                    class="btn-secondary">
+                    ▶
+                </button>
+
             </div>
 
-            <div id="weekdays" class="weekdays">
-                <div>LUN</div>
-                <div>MAR</div>
-                <div>MER</div>
-                <div>JEU</div>
-                <div>VEN</div>
-                <div>SAM</div>
-                <div>DIM</div>
-            </div>
+            <div id="weekdays" class="weekdays"></div>
 
             <div id="calendar" class="calendar-grid"></div>
 
-            <h3 id="selectedDateTitle" class="selected-date-title">
-                Missions du jour
-            </h3>
+            <h3 id="selectedDateTitle"></h3>
 
             <div id="missions"></div>
 
         </section>
 
+
         <!-- ==================================
-             CREATION MISSION
+             CREATION DE MISSION
         =================================== -->
 
         <section id="createMissionBox" class="panel">
 
             <h2 class="section-toggle">
-                <span>＋</span> CRÉER UNE MISSION
+                CRÉER UNE MISSION
+                <span>▼</span>
             </h2>
 
             <div class="section-content">
 
                 <div class="form-group">
-                    <label for="mTitle">Intitulé de la mission *</label>
-                    <input
-                        type="text"
-                        id="mTitle"
-                        placeholder="Nom de la mission"
-                        maxlength="120"
-                    >
+                    <label for="mTitle">Titre de la mission</label>
+                    <input id="mTitle" type="text"
+                        placeholder="Intitulé de la mission">
                 </div>
 
                 <div class="form-group">
                     <label for="mDesc">Description</label>
-                    <textarea
-                        id="mDesc"
-                        rows="3"
-                        placeholder="Détails de la mission"
-                    ></textarea>
+                    <textarea id="mDesc"
+                        placeholder="Description de la mission"></textarea>
                 </div>
 
-                <div class="form-grid">
+                <div class="form-group">
+                    <label for="mStart">Date de début</label>
+                    <input id="mStart" type="text"
+                        placeholder="JJ/MM/AAAA">
+                </div>
 
-                    <div class="form-group">
-                        <label for="mStart">Date de début *</label>
-                        <input
-                            type="text"
-                            id="mStart"
-                            placeholder="JJ/MM/AAAA"
-                            inputmode="numeric"
-                        >
-                    </div>
-
-                    <div class="form-group">
-                        <label for="mEnd">Date de fin *</label>
-                        <input
-                            type="text"
-                            id="mEnd"
-                            placeholder="JJ/MM/AAAA"
-                            inputmode="numeric"
-                        >
-                    </div>
-
+                <div class="form-group">
+                    <label for="mEnd">Date de fin</label>
+                    <input id="mEnd" type="text"
+                        placeholder="JJ/MM/AAAA">
                 </div>
 
                 <div class="form-group">
                     <label for="mLocation">Lieu</label>
-                    <input
-                        type="text"
-                        id="mLocation"
-                        placeholder="Lieu de la mission"
-                    >
+                    <input id="mLocation" type="text"
+                        placeholder="Lieu de la mission">
                 </div>
 
                 <div class="form-group">
                     <label for="mGroup">Groupe concerné</label>
                     <select id="mGroup">
-                        <option value="1">Groupe 1</option>
-                        <option value="2">Groupe 2</option>
-                        <option value="3">Groupe 3</option>
-                        <option value="all">Tous les groupes</option>
+                        <option value="1">GROUPE 1</option>
+                        <option value="2">GROUPE 2</option>
+                        <option value="3">GROUPE 3</option>
+                        <option value="all">TOUS LES GROUPES</option>
                     </select>
                 </div>
 
                 <div class="form-group">
-                    <label for="mConcerned">Personnel concerné</label>
-                    <textarea
-                        id="mConcerned"
-                        rows="2"
-                        placeholder="Tous ou saisir les grades et noms concernés"
-                    ></textarea>
-                    <small>
-                        Indique « Tous » ou les noms des personnels concernés.
-                    </small>
+                    <label for="mConcerned">
+                        Personnel concerné
+                    </label>
+                    <input id="mConcerned" type="text"
+                        placeholder="Tous ou identifiants séparés par des virgules">
                 </div>
+
 
                 <!-- PATRACDR -->
 
                 <div class="patracdr-container">
 
                     <label class="checkbox-line">
-                        <input type="checkbox" id="patracdrToggle">
-                        <span>Ajouter un PATRACDR</span>
+                        <input id="patracdrToggle" type="checkbox">
+                        Ajouter un PATRACDR
                     </label>
 
                     <div id="patracdrFields" class="hidden">
 
                         <div class="form-group">
                             <label for="pPersonnel">Personnel</label>
-                            <textarea id="pPersonnel" rows="2"></textarea>
+                            <input id="pPersonnel" type="text">
                         </div>
 
                         <div class="form-group">
                             <label for="pArmement">Armement</label>
-                            <textarea id="pArmement" rows="2"></textarea>
+                            <input id="pArmement" type="text">
                         </div>
 
                         <div class="form-group">
                             <label for="pTenue">Tenue</label>
-                            <textarea id="pTenue" rows="2"></textarea>
+                            <input id="pTenue" type="text">
                         </div>
 
                         <div class="form-group">
-                            <label for="pRadio">Radio / Transmissions</label>
-                            <textarea id="pRadio" rows="2"></textarea>
+                            <label for="pRadio">Radio</label>
+                            <input id="pRadio" type="text">
                         </div>
 
                         <div class="form-group">
                             <label for="pAlimentation">Alimentation</label>
-                            <textarea id="pAlimentation" rows="2"></textarea>
+                            <input id="pAlimentation" type="text">
                         </div>
 
                         <div class="form-group">
                             <label for="pCamouflage">Camouflage</label>
-                            <textarea id="pCamouflage" rows="2"></textarea>
+                            <input id="pCamouflage" type="text">
                         </div>
 
                         <div class="form-group">
                             <label for="pDivers">Divers</label>
-                            <textarea id="pDivers" rows="2"></textarea>
+                            <input id="pDivers" type="text">
                         </div>
 
                         <div class="form-group">
-                            <label for="pRassemblement">Lieu et heure de rassemblement</label>
-                            <textarea id="pRassemblement" rows="2"></textarea>
+                            <label for="pRassemblement">Rassemblement</label>
+                            <input id="pRassemblement" type="text">
                         </div>
 
                     </div>
+
                 </div>
 
-                <button id="createBtn" class="btn-primary">
+                <button id="createBtn" class="btn-primary"
+                    type="button">
                     CRÉER LA MISSION
                 </button>
 
             </div>
+
         </section>
+
+
+        <!-- ==================================
+             GESTION DU PERSONNEL
+        =================================== -->
+
+        <section id="personnelBox" class="panel">
+
+            <h2 class="section-toggle">
+                GESTION DU PERSONNEL
+                <span>▼</span>
+            </h2>
+
+            <div class="section-content">
+
+                <!-- Formulaire réservé au CDS -->
+
+                <div id="personnelFormBox" class="hidden">
+
+                    <h3 id="personnelFormTitle">
+                        AJOUTER UN MEMBRE
+                    </h3>
+
+                    <div class="form-group">
+                        <label for="personnelLogin">
+                            Grade et nom
+                        </label>
+                        <input id="personnelLogin" type="text"
+                            placeholder="Exemple : SDT PINGOUIN">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="personnelGroup">
+                            Groupe
+                        </label>
+                        <select id="personnelGroup">
+                            <option value="1">GROUPE 1</option>
+                            <option value="2">GROUPE 2</option>
+                            <option value="3">GROUPE 3</option>
+                        </select>
+                    </div>
+
+                    <input id="personnelOriginalLogin"
+                        type="hidden">
+
+                    <div class="actions">
+
+                        <button id="savePersonnelBtn"
+                            class="btn-primary" type="button">
+                            ENREGISTRER
+                        </button>
+
+                        <button id="cancelPersonnelBtn"
+                            class="btn-secondary" type="button">
+                            ANNULER
+                        </button>
+
+                    </div>
+
+                </div>
+
+
+                <div id="personnelActions" class="hidden">
+
+                    <button id="addPersonnelBtn"
+                        class="btn-primary" type="button">
+                        + AJOUTER UN MEMBRE
+                    </button>
+
+                </div>
+
+
+                <!-- Filtres -->
+
+                <div class="form-group">
+                    <label for="personnelFilter">
+                        Afficher le groupe
+                    </label>
+
+                    <select id="personnelFilter">
+                        <option value="all">TOUS LES GROUPES</option>
+                        <option value="1">GROUPE 1</option>
+                        <option value="2">GROUPE 2</option>
+                        <option value="3">GROUPE 3</option>
+                    </select>
+                </div>
+
+
+                <!-- Liste du personnel -->
+
+                <div id="personnelList"></div>
+
+            </div>
+
+        </section>
+
 
         <!-- ==================================
              TOUTES LES MISSIONS
@@ -253,7 +325,8 @@
         <section id="allMissionsBox" class="panel">
 
             <h2 class="section-toggle">
-                <span>▤</span> GESTION DES MISSIONS
+                GESTION DES MISSIONS
+                <span>▼</span>
             </h2>
 
             <div class="section-content">
@@ -262,14 +335,16 @@
 
         </section>
 
+
         <!-- ==================================
-             MISSIONS ARCHIVEES
+             ARCHIVES
         =================================== -->
 
         <section id="archivedMissionsBox" class="panel">
 
             <h2 class="section-toggle">
-                <span>▣</span> MISSIONS TERMINÉES
+                ARCHIVES
+                <span>▼</span>
             </h2>
 
             <div class="section-content">
@@ -278,14 +353,16 @@
 
         </section>
 
+
         <!-- ==================================
-             SUIVI DES PRESENCES
+             COMPTEUR DE PRESENCE
         =================================== -->
 
         <section id="presenceCounterBox" class="panel">
 
             <h2 class="section-toggle">
-                <span>☷</span> SUIVI DES PRÉSENCES
+                SUIVI DES PRÉSENCES
+                <span>▼</span>
             </h2>
 
             <div class="section-content">
@@ -296,13 +373,19 @@
 
     </main>
 
+
     <!-- ==================================
          PIED DE PAGE
     =================================== -->
 
     <footer class="app-footer">
-        BLEU4 2027 — Gestion des activités
+        BLEU4 2027 — GESTION DES ACTIVITÉS
     </footer>
+
+
+    <!-- ==================================
+         SCRIPTS
+    =================================== -->
 
     <script type="module" src="js/app.js"></script>
 
