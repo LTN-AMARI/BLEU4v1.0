@@ -23,7 +23,6 @@ import {
     renderMissionList,
     renderAllMissions,
     renderArchivedMissions,
-    renderPresenceCounter,
     isUserConcerned,
     getStatus,
     isCDS,
@@ -90,8 +89,11 @@ const userInfo = document.getElementById("userInfo");
 const logoutBtn = document.getElementById("logoutBtn");
 
 if (userInfo) {
-    userInfo.textContent =
-        `${user.login} — ${getProfileLabel()}`;
+    userInfo.innerHTML = `
+        <strong>${escapeHTML(getProfileLabel())}</strong>
+        <br>
+        <span>${escapeHTML(user.displayName || user.login || "")}</span>
+    `;
 }
 
 logoutBtn?.addEventListener("click", () => {
@@ -113,7 +115,6 @@ function hideSplashScreen() {
     splashHidden = true;
 
     const splash = document.getElementById("splashScreen");
-
     if (!splash) return;
 
     const remaining = Math.max(
@@ -123,7 +124,6 @@ function hideSplashScreen() {
 
     setTimeout(() => {
         splash.classList.add("fade-out");
-
         setTimeout(() => splash.remove(), 850);
     }, remaining);
 }
@@ -155,23 +155,26 @@ const missionGroupSelect = document.getElementById("mGroup");
    5. AFFICHAGE SELON LE PROFIL
 ========================================== */
 
+// Création réservée au CDS
 if (createBox) {
     createBox.style.display = canCreate ? "block" : "none";
 }
 
+// Liste de toutes les missions : commandement
 if (allMissionsBox) {
     allMissionsBox.style.display =
         commandMode ? "block" : "none";
 }
 
+// Archives 2026 : CDS uniquement
 if (archivedMissionsBox) {
     archivedMissionsBox.style.display =
-        commandMode ? "block" : "none";
+        isCDS(user) ? "block" : "none";
 }
 
+// Ancien compteur global : masqué
 if (presenceCounterBox) {
-    presenceCounterBox.style.display =
-        commandMode ? "block" : "none";
+    presenceCounterBox.style.display = "none";
 }
 
 if (missionGroupSelect) {
@@ -240,14 +243,12 @@ let visibleMissions = [];
 let personnelData = [];
 
 let missionsLoaded = false;
-let personnelLoaded = false;
-
 let knownMissionIds = null;
 let knownResponses = null;
 
 
 /* ==========================================
-   9. RAFRAICHISSEMENT DES MISSIONS
+   9. RAFRAICHISSEMENT
 ========================================== */
 
 function refreshViews() {
@@ -262,8 +263,10 @@ function refreshViews() {
 
     if (commandMode) {
         renderAllMissions(allMissions, user);
-        renderArchivedMissions(allMissions, user);
-        renderPresenceCounter(allMissions, user);
+
+        if (isCDS(user)) {
+            renderArchivedMissions(allMissions, user);
+        }
     }
 }
 
@@ -306,49 +309,40 @@ const cancelPersonnelBtn = document.getElementById("cancelPersonnelBtn");
 
 const personnelFormTitle = document.getElementById("personnelFormTitle");
 
-
-// Accès à la rubrique
 if (personnelBox) {
     personnelBox.style.display =
         commandMode ? "block" : "none";
 }
 
-// Modification réservée au CDS
 if (isCDS(user)) {
     personnelActions?.classList.remove("hidden");
+} else {
+    personnelActions?.classList.add("hidden");
 }
 
-// Le CDG est limité à son groupe
 if (isCDG(user) && personnelFilter) {
     personnelFilter.value = getUserGroup();
     personnelFilter.disabled = true;
 }
 
-// SOA : consultation uniquement
-if (isSOA(user)) {
-    personnelActions?.classList.add("hidden");
+if (isSOA(user) && personnelFilter) {
+    personnelFilter.disabled = false;
 }
 
 
-// Ouvrir le formulaire d'ajout
 function openPersonnelForm(person = null) {
 
-    if (!isCDS(user)) return;
-
-    if (!personnelFormBox) return;
+    if (!isCDS(user) || !personnelFormBox) return;
 
     personnelFormBox.classList.remove("hidden");
 
     if (person) {
         personnelFormTitle.textContent = "MODIFIER UN MEMBRE";
-
         personnelLoginInput.value = person.login || "";
         personnelGroupInput.value = String(person.group || "1");
         personnelOriginalLogin.value = person.login || "";
-
     } else {
         personnelFormTitle.textContent = "AJOUTER UN MEMBRE";
-
         personnelLoginInput.value = "";
         personnelGroupInput.value = "1";
         personnelOriginalLogin.value = "";
@@ -358,9 +352,7 @@ function openPersonnelForm(person = null) {
 }
 
 
-// Fermer le formulaire
 function closePersonnelForm() {
-
     personnelFormBox?.classList.add("hidden");
 
     if (personnelLoginInput) personnelLoginInput.value = "";
@@ -375,7 +367,6 @@ addPersonnelBtn?.addEventListener("click", () => {
 cancelPersonnelBtn?.addEventListener("click", closePersonnelForm);
 
 
-// Enregistrer un membre
 savePersonnelBtn?.addEventListener("click", async () => {
 
     if (!isCDS(user)) return;
@@ -394,12 +385,10 @@ savePersonnelBtn?.addEventListener("click", async () => {
         return;
     }
 
-    const duplicate = personnelData.some(person => {
-        return (
-            person.login?.toUpperCase() === login &&
-            person.login !== originalLogin
-        );
-    });
+    const duplicate = personnelData.some(person => (
+        person.login?.toUpperCase() === login &&
+        person.login !== originalLogin
+    ));
 
     if (duplicate) {
         alert("Ce membre existe déjà dans le personnel.");
@@ -409,7 +398,6 @@ savePersonnelBtn?.addEventListener("click", async () => {
     savePersonnelBtn.disabled = true;
 
     try {
-
         await savePersonnel({
             login,
             group,
@@ -417,115 +405,74 @@ savePersonnelBtn?.addEventListener("click", async () => {
         }, originalLogin);
 
         closePersonnelForm();
-
         alert("Personnel enregistré.");
 
     } catch (error) {
-
         console.error("Erreur enregistrement personnel :", error);
-
-        alert(
-            "Impossible d'enregistrer ce membre. Vérifie les règles Firebase."
-        );
+        alert("Impossible d'enregistrer ce membre. Vérifie les règles Firebase.");
 
     } finally {
         savePersonnelBtn.disabled = false;
     }
-
 });
 
 
-// Modifier un membre
-async function editPersonnel(login) {
+function editPersonnel(login) {
 
     if (!isCDS(user)) return;
 
-    const person = personnelData.find(item => {
-        return item.login === login;
-    });
+    const person = personnelData.find(item => item.login === login);
 
-    if (!person) return;
-
-    openPersonnelForm(person);
+    if (person) openPersonnelForm(person);
 }
 
 
-// Supprimer un membre
 async function removePersonnel(login) {
 
     if (!isCDS(user)) return;
 
-    const confirmed = confirm(
-        `Supprimer définitivement ${login} du personnel ?`
-    );
-
-    if (!confirmed) return;
+    if (!confirm(`Supprimer définitivement ${login} du personnel ?`)) {
+        return;
+    }
 
     try {
-
         await deletePersonnel(login);
-
         alert("Membre supprimé.");
 
     } catch (error) {
-
         console.error("Erreur suppression personnel :", error);
-
-        alert(
-            "Impossible de supprimer ce membre. Vérifie les règles Firebase."
-        );
-
+        alert("Impossible de supprimer ce membre. Vérifie les règles Firebase.");
     }
 }
 
 
-// Afficher le personnel selon le profil et le filtre
 function renderPersonnel() {
 
-    if (!personnelListContainer) return;
+    if (!personnelListContainer || !commandMode) return;
 
-    if (!commandMode) return;
+    let filtered = personnelData.filter(person => person.active !== false);
 
-    let filtered = [...personnelData];
-
-    // Ne pas afficher les membres désactivés
-    filtered = filtered.filter(person => person.active !== false);
-
-    // Filtrage propre au profil
     if (isCDG(user)) {
-        filtered = filtered.filter(person => {
-            return String(person.group) === getUserGroup();
-        });
-    } else if (isSOA(user)) {
+        filtered = filtered.filter(person => (
+            String(person.group) === getUserGroup()
+        ));
+    } else {
         const selected = personnelFilter?.value || "all";
 
         if (selected !== "all") {
-            filtered = filtered.filter(person => {
-                return String(person.group) === selected;
-            });
-        }
-    } else if (isCDS(user)) {
-        const selected = personnelFilter?.value || "all";
-
-        if (selected !== "all") {
-            filtered = filtered.filter(person => {
-                return String(person.group) === selected;
-            });
+            filtered = filtered.filter(person => (
+                String(person.group) === selected
+            ));
         }
     }
 
-    filtered.sort((a, b) => {
-        return String(a.login || "").localeCompare(
-            String(b.login || ""),
-            "fr"
-        );
-    });
+    filtered.sort((a, b) => (
+        String(a.login || "").localeCompare(String(b.login || ""), "fr")
+    ));
 
     if (!filtered.length) {
         personnelListContainer.innerHTML = `
-            <p class="empty-message">
-                Aucun membre dans ce groupe.
-            </p>
+            <p class="empty-message">Aucun membre dans ce groupe.</p>
         `;
         return;
     }
@@ -534,82 +481,62 @@ function renderPersonnel() {
         ? [getUserGroup()]
         : ["1", "2", "3"];
 
-    const html = groups.map(group => {
+    personnelListContainer.innerHTML = groups.map(group => {
 
-        const members = filtered.filter(person => {
-            return String(person.group) === group;
-        });
+        const members = filtered.filter(person => (
+            String(person.group) === group
+        ));
 
         if (!members.length) return "";
 
         return `
             <div class="personnel-group">
-
                 <h3>GROUPE ${group}</h3>
 
                 ${members.map(person => `
                     <div class="response-row personnel-row">
-
                         <strong>${escapeHTML(person.login)}</strong>
 
-                        ${
-                            isCDS(user)
-                                ? `
-                                    <div class="actions">
-                                        <button
-                                            type="button"
-                                            class="btn-secondary"
-                                            data-personnel-edit="${escapeHTML(person.login)}">
-                                            MODIFIER
-                                        </button>
+                        ${isCDS(user) ? `
+                            <div class="actions">
+                                <button
+                                    type="button"
+                                    class="btn-secondary"
+                                    data-personnel-edit="${escapeHTML(person.login)}">
+                                    MODIFIER
+                                </button>
 
-                                        <button
-                                            type="button"
-                                            class="btn-delete"
-                                            data-personnel-delete="${escapeHTML(person.login)}">
-                                            SUPPRIMER
-                                        </button>
-                                    </div>
-                                `
-                                : ""
-                        }
-
+                                <button
+                                    type="button"
+                                    class="btn-delete"
+                                    data-personnel-delete="${escapeHTML(person.login)}">
+                                    SUPPRIMER
+                                </button>
+                            </div>
+                        ` : ""}
                     </div>
                 `).join("")}
-
             </div>
         `;
-
     }).join("");
 
-    personnelListContainer.innerHTML = html;
-
-    // Brancher les boutons de modification
     personnelListContainer
         .querySelectorAll("[data-personnel-edit]")
         .forEach(button => {
-
             button.addEventListener("click", () => {
                 editPersonnel(button.dataset.personnelEdit);
             });
-
         });
 
-    // Brancher les boutons de suppression
     personnelListContainer
         .querySelectorAll("[data-personnel-delete]")
         .forEach(button => {
-
             button.addEventListener("click", () => {
                 removePersonnel(button.dataset.personnelDelete);
             });
-
         });
-
 }
 
-
-// Changement du filtre
 personnelFilter?.addEventListener("change", renderPersonnel);
 
 
@@ -636,15 +563,11 @@ listenPersonnel(personnel => {
     personnelData = Array.isArray(personnel) ? personnel : [];
 
     setPersonnelList(personnelData);
-
-    personnelLoaded = true;
-
     renderPersonnel();
 
     if (missionsLoaded) {
         refreshViews();
     }
-
 });
 
 
@@ -680,12 +603,10 @@ function updatePendingBanner(pendingMissions) {
 let notificationRequested = false;
 
 document.addEventListener("click", () => {
-
     if (notificationRequested) return;
 
     notificationRequested = true;
     requestNotificationPermission();
-
 }, { once: true });
 
 
@@ -701,22 +622,13 @@ function getPendingMissions(missions) {
 
     return missions.filter(mission => {
 
-        if (mission.end && mission.end < today) {
-            return false;
-        }
-
-        if (!canSeeMissionForUser(mission)) {
-            return false;
-        }
-
-        if (!isUserConcerned(mission, user)) {
-            return false;
-        }
+        if (mission.end && mission.end < today) return false;
+        if (!canSeeMissionForUser(mission)) return false;
+        if (!isUserConcerned(mission, user)) return false;
 
         const response = mission.responses?.[user.login];
 
         return !getStatus(response);
-
     });
 }
 
@@ -727,9 +639,7 @@ function getPendingMissions(missions) {
 
 function detectNewMissions(missions) {
 
-    const currentIds = new Set(
-        missions.map(mission => mission.id)
-    );
+    const currentIds = new Set(missions.map(mission => mission.id));
 
     if (knownMissionIds === null) {
         knownMissionIds = currentIds;
@@ -744,24 +654,13 @@ function detectNewMissions(missions) {
 
     newMissions.forEach(mission => {
 
-        if (
-            memberMode &&
-            !isUserConcerned(mission, user)
-        ) {
-            return;
-        }
+        if (memberMode && !isUserConcerned(mission, user)) return;
 
-        const message =
-            `Nouvelle mission le ${isoToFr(mission.start)}.`;
+        const message = `Nouvelle mission le ${isoToFr(mission.start)}.`;
 
         playAlertSound();
         showMissionBanner(message);
-
-        showSystemNotification(
-            "Nouvelle mission BLEU4",
-            message
-        );
-
+        showSystemNotification("Nouvelle mission BLEU4", message);
     });
 
     knownMissionIds = currentIds;
@@ -777,10 +676,7 @@ function detectNewResponses(missions) {
     const currentResponses = new Map();
 
     missions.forEach(mission => {
-        currentResponses.set(
-            mission.id,
-            { ...(mission.responses || {}) }
-        );
+        currentResponses.set(mission.id, { ...(mission.responses || {}) });
     });
 
     if (knownResponses === null) {
@@ -794,38 +690,23 @@ function detectNewResponses(missions) {
 
             if (!canSeeMissionForUser(mission)) return;
 
-            const previous =
-                knownResponses.get(mission.id) || {};
-
-            const current =
-                currentResponses.get(mission.id) || {};
+            const previous = knownResponses.get(mission.id) || {};
+            const current = currentResponses.get(mission.id) || {};
 
             Object.entries(current).forEach(([login, entry]) => {
 
                 const status = getStatus(entry);
                 const previousStatus = getStatus(previous[login]);
 
-                if (!status || status === previousStatus) {
-                    return;
-                }
+                if (!status || status === previousStatus) return;
 
-                const label =
-                    status === "present" ? "présent" : "absent";
-
-                const message =
-                    `${login} : ${label} pour "${mission.title}".`;
+                const label = status === "present" ? "présent" : "absent";
+                const message = `${login} : ${label} pour "${mission.title}".`;
 
                 showMissionBanner(message);
-
-                showSystemNotification(
-                    "Réponse à une mission",
-                    message
-                );
-
+                showSystemNotification("Réponse à une mission", message);
             });
-
         });
-
     }
 
     knownResponses = currentResponses;
@@ -852,9 +733,7 @@ listenMissions(missions => {
     detectNewResponses(allMissions);
 
     if (memberMode) {
-        updatePendingBanner(
-            getPendingMissions(allMissions)
-        );
+        updatePendingBanner(getPendingMissions(allMissions));
     }
 
     hideSplashScreen();
@@ -862,9 +741,7 @@ listenMissions(missions => {
 }, error => {
 
     console.error("Erreur Firebase missions :", error);
-
     hideSplashScreen();
-
 });
 
 
@@ -876,12 +753,7 @@ const patracdrToggle = document.getElementById("patracdrToggle");
 const patracdrFields = document.getElementById("patracdrFields");
 
 patracdrToggle?.addEventListener("change", () => {
-
-    patracdrFields?.classList.toggle(
-        "hidden",
-        !patracdrToggle.checked
-    );
-
+    patracdrFields?.classList.toggle("hidden", !patracdrToggle.checked);
 });
 
 function collectPatracdrFromForm() {
@@ -901,14 +773,11 @@ function collectPatracdrFromForm() {
         divers: getValue("pDivers"),
         rassemblement: getValue("pRassemblement")
     };
-
 }
 
 function resetPatracdrForm() {
 
-    if (patracdrToggle) {
-        patracdrToggle.checked = false;
-    }
+    if (patracdrToggle) patracdrToggle.checked = false;
 
     patracdrFields?.classList.add("hidden");
 
@@ -922,13 +791,9 @@ function resetPatracdrForm() {
         "pDivers",
         "pRassemblement"
     ].forEach(id => {
-
         const element = document.getElementById(id);
-
         if (element) element.value = "";
-
     });
-
 }
 
 
@@ -946,15 +811,12 @@ autoFormatDateInput(mEnd);
 
 createBtn?.addEventListener("click", async () => {
 
-    if (!canCreate) return;
+    if (!isCDS(user)) return;
 
     const title = mTitle?.value.trim() || "";
     const start = frToIso(mStart?.value || "");
     const end = frToIso(mEnd?.value || "");
-
-    const group = isCDG(user)
-        ? getUserGroup()
-        : String(missionGroupSelect?.value || "");
+    const group = String(missionGroupSelect?.value || "");
 
     if (!title) {
         alert("Le titre de la mission est obligatoire.");
@@ -983,7 +845,7 @@ createBtn?.addEventListener("click", async () => {
         end,
         location: mLocation?.value.trim() || "",
         concerned: mConcerned?.value.trim() || "Tous",
-        createdBy: user.login,
+        createdBy: user.displayName || user.login,
         group,
         patracdr: collectPatracdrFromForm()
     };
@@ -1001,9 +863,7 @@ createBtn?.addEventListener("click", async () => {
         if (mLocation) mLocation.value = "";
         if (mConcerned) mConcerned.value = "";
 
-        if (isCDS(user) && missionGroupSelect) {
-            missionGroupSelect.value = "1";
-        }
+        if (missionGroupSelect) missionGroupSelect.value = "1";
 
         resetPatracdrForm();
 
@@ -1012,15 +872,11 @@ createBtn?.addEventListener("click", async () => {
     } catch (error) {
 
         console.error("Erreur création mission :", error);
-
-        alert(
-            "Impossible de créer la mission. Vérifie la connexion Firebase."
-        );
+        alert("Impossible de créer la mission. Vérifie la connexion Firebase.");
 
     } finally {
         createBtn.disabled = false;
     }
-
 });
 
 
@@ -1030,3 +886,5 @@ createBtn?.addEventListener("click", async () => {
 
 console.log("BLEU4 2027 initialisé.");
 console.log("Profil :", getProfileLabel());
+
+
