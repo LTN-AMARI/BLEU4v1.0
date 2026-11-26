@@ -3,7 +3,6 @@
 // BLEU4 2027 - FIREBASE
 // Missions + personnel
 // Conservation des données existantes
-// Firebase SDK 10.12.2
 // ======================================
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
@@ -15,11 +14,12 @@ import {
     push,
     update,
     remove,
-    set
+    set,
+    runTransaction
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
 
 // ======================================
-// CONFIGURATION
+// CONFIGURATION FIREBASE
 // ======================================
 
 const firebaseConfig = {
@@ -33,303 +33,298 @@ const firebaseConfig = {
 };
 
 const app = initializeApp(firebaseConfig);
-const db = getDatabase(app);
-
-const missionsRef = ref(db, "missions");
-const personnelRef = ref(db, "personnel");
+export const db = getDatabase(app);
 
 // ======================================
-// UTILITAIRE : CLE FIREBASE
+// OUTILS
 // ======================================
+
+const VALID_GROUPS = ["1", "2", "3", "all"];
 
 export function safeKey(value) {
     return String(value ?? "")
         .trim()
-        .replace(/[.#$\[\]\/]/g, "_");
+        .replace(/[.#$[\]/]/g, "_");
 }
 
-// ======================================
-// UTILITAIRE : VERIFICATION
-// ======================================
-
 function requireValue(value, message) {
-    if (value === null || value === undefined || value === "") {
+    if (value === undefined || value === null || value === "") {
         throw new Error(message);
     }
 }
 
-// ======================================
-// MISSIONS : LECTURE TEMPS REEL
-// ======================================
-
-export function listenMissions(callback) {
-
-    return onValue(
-        missionsRef,
-        (snapshot) => {
-
-            const data = snapshot.val() || {};
-
-            const missions = Object.entries(data).map(([id, value]) => ({
-                ...value,
-                id
-            }));
-
-            callback(missions);
-        },
-        (error) => {
-            console.error("Erreur lecture missions :", error);
-        }
+function cleanObject(object) {
+    return Object.fromEntries(
+        Object.entries(object).filter(([, value]) => value !== undefined)
     );
 }
 
 // ======================================
-// MISSIONS : CREATION
+// MISSIONS - ECOUTE EN TEMPS REEL
 // ======================================
 
-export async function createMissionInDb(mission) {
+export function listenMissions(callback) {
+    const missionsRef = ref(db, "missions");
 
-    requireValue(mission?.title, "Le titre de la mission est obligatoire.");
-    requireValue(mission?.start, "La date de début est obligatoire.");
-    requireValue(mission?.end, "La date de fin est obligatoire.");
+    return onValue(missionsRef, (snapshot) => {
+        const data = snapshot.val() || {};
 
-    const data = {
-        title: String(mission.title).trim(),
-        description: String(mission.description || ""),
-        start: String(mission.start),
-        end: String(mission.end),
-        location: String(mission.location || ""),
-        concerned: String(mission.concerned || "Tous"),
-        createdBy: String(mission.createdBy || ""),
-        responses: {}
-    };
+        const missions = Object.entries(data).map(([id, value]) => ({
+            ...value,
+            id
+        }));
 
-    // Groupe : 1, 2, 3 ou all
-    if (mission.group) {
-        const group = String(mission.group);
-
-        if (!["1", "2", "3", "all"].includes(group)) {
-            throw new Error("Groupe de mission invalide.");
-        }
-
-        data.group = group;
-    }
-
-    if (mission.patracdr) {
-        data.patracdr = mission.patracdr;
-    }
-
-    return push(missionsRef, data);
+        callback(missions);
+    }, (error) => {
+        console.error("Erreur lecture missions :", error);
+    });
 }
 
 // ======================================
-// MISSIONS : ENREGISTRER UNE REPONSE
-// Compatible avec les anciennes réponses
+// MISSIONS - CREATION
+// ======================================
+
+export async function createMissionInDb(mission) {
+    requireValue(mission?.title?.trim(), "Le titre est obligatoire.");
+    requireValue(mission?.start, "La date de début est obligatoire.");
+    requireValue(mission?.end, "La date de fin est obligatoire.");
+
+    if (mission.end < mission.start) {
+        throw new Error("La date de fin est antérieure à la date de début.");
+    }
+
+    if (
+        mission.group !== undefined &&
+        !VALID_GROUPS.includes(String(mission.group))
+    ) {
+        throw new Error("Groupe de mission invalide.");
+    }
+
+    const data = cleanObject({
+        title: mission.title.trim(),
+        description: mission.description || "",
+        start: mission.start,
+        end: mission.end,
+        location: mission.location || "",
+        concerned: mission.concerned || "Tous",
+        createdBy: mission.createdBy || "",
+        group: mission.group,
+        patracdr: mission.patracdr || null,
+        responses: {}
+    });
+
+    const newMissionRef = push(ref(db, "missions"));
+    await set(newMissionRef, data);
+
+    return newMissionRef.key;
+}
+
+// ======================================
+// MISSIONS - MODIFICATION
+// ======================================
+
+export async function updateMissionInDb(missionId, updates) {
+    requireValue(missionId, "Identifiant de mission manquant.");
+
+    const data = cleanObject({ ...updates });
+
+    delete data.id;
+    delete data.responses;
+
+    if (data.group !== undefined &&
+        !VALID_GROUPS.includes(String(data.group))) {
+        throw new Error("Groupe de mission invalide.");
+    }
+
+    await update(ref(db, `missions/${missionId}`), data);
+}
+
+// ======================================
+// MISSIONS - SUPPRESSION
+// ======================================
+
+export async function deleteMissionInDb(missionId) {
+    requireValue(missionId, "Identifiant de mission manquant.");
+
+    await remove(ref(db, `missions/${missionId}`));
+}
+
+// ======================================
+// REPONSES - PRESENT / ABSENT
+// Compatible avec les anciennes réponses texte
+// et les nouvelles réponses sous forme d'objet.
 // ======================================
 
 export async function setResponse(missionId, login, status) {
-
-    requireValue(missionId, "Identifiant de mission manquant.");
-    requireValue(login, "Identifiant du membre manquant.");
+    requireValue(missionId, "Mission manquante.");
+    requireValue(login, "Identifiant personnel manquant.");
 
     if (!["present", "absent"].includes(status)) {
         throw new Error("Statut de réponse invalide.");
     }
 
     const key = safeKey(login);
+    const responseRef = ref(db, `missions/${missionId}/responses/${key}`);
 
-    if (!key) {
-        throw new Error("Identifiant du membre invalide.");
-    }
+    const result = await runTransaction(responseRef, (current) => {
+        if (typeof current === "string") {
+            return { status };
+        }
 
-    const entryRef = ref(
-        db,
-        `missions/${missionId}/responses/${key}`
-    );
+        if (current && typeof current === "object") {
+            return { ...current, status };
+        }
 
-    await update(entryRef, {
-        status
+        return { status };
     });
+
+    if (!result.committed) {
+        throw new Error("La réponse n'a pas pu être enregistrée.");
+    }
 }
 
 // ======================================
-// MISSIONS : JOURS EFFECTUES
-// Conserve le statut présent
+// REPONSES - NOMBRE DE JOURS
+// Préserve le statut existant.
 // ======================================
 
 export async function setResponseDays(missionId, login, days) {
+    requireValue(missionId, "Mission manquante.");
+    requireValue(login, "Identifiant personnel manquant.");
 
-    requireValue(missionId, "Identifiant de mission manquant.");
-    requireValue(login, "Identifiant du membre manquant.");
-
-    const key = safeKey(login);
     const value = Number(days);
 
-    if (!Number.isFinite(value) || value < 0) {
+    if (!Number.isFinite(value) || value < 1) {
         throw new Error("Nombre de jours invalide.");
     }
 
-    const entryRef = ref(
-        db,
-        `missions/${missionId}/responses/${key}`
-    );
+    const key = safeKey(login);
+    const responseRef = ref(db, `missions/${missionId}/responses/${key}`);
 
-    await update(entryRef, {
-        status: "present",
-        days: value
+    const result = await runTransaction(responseRef, (current) => {
+        if (typeof current === "string") {
+            return {
+                status: current,
+                days: value
+            };
+        }
+
+        if (current && typeof current === "object") {
+            return {
+                ...current,
+                days: value
+            };
+        }
+
+        return { days: value };
+    });
+
+    if (!result.committed) {
+        throw new Error("Le nombre de jours n'a pas pu être enregistré.");
+    }
+}
+
+// ======================================
+// REPONSES - SUPPRESSION
+// ======================================
+
+export async function removeResponse(missionId, login) {
+    requireValue(missionId, "Mission manquante.");
+    requireValue(login, "Identifiant personnel manquant.");
+
+    const key = safeKey(login);
+
+    await remove(
+        ref(db, `missions/${missionId}/responses/${key}`)
+    );
+}
+
+// ======================================
+// PERSONNEL - ECOUTE EN TEMPS REEL
+// ======================================
+
+export function listenPersonnel(callback) {
+    const personnelRef = ref(db, "personnel");
+
+    return onValue(personnelRef, (snapshot) => {
+        const data = snapshot.val() || {};
+
+        const personnel = Object.entries(data).map(([id, value]) => ({
+            ...value,
+            id
+        }));
+
+        callback(personnel);
+    }, (error) => {
+        console.error("Erreur lecture personnel :", error);
     });
 }
 
 // ======================================
-// MISSIONS : SUPPRIMER UNE REPONSE
-// ======================================
-
-export async function removeResponse(missionId, login) {
-
-    requireValue(missionId, "Identifiant de mission manquant.");
-    requireValue(login, "Identifiant du membre manquant.");
-
-    const key = safeKey(login);
-
-    const entryRef = ref(
-        db,
-        `missions/${missionId}/responses/${key}`
-    );
-
-    await remove(entryRef);
-}
-
-// ======================================
-// MISSIONS : MODIFICATION
-// ======================================
-
-export async function updateMissionInDb(missionId, fields) {
-
-    requireValue(missionId, "Identifiant de mission manquant.");
-
-    if (!fields || typeof fields !== "object" || Array.isArray(fields)) {
-        throw new Error("Données de modification invalides.");
-    }
-
-    await update(
-        ref(db, `missions/${missionId}`),
-        fields
-    );
-}
-
-// ======================================
-// MISSIONS : SUPPRESSION
-// ======================================
-
-export async function deleteMissionInDb(missionId) {
-
-    requireValue(missionId, "Identifiant de mission manquant.");
-
-    await remove(
-        ref(db, `missions/${missionId}`)
-    );
-}
-
-// ======================================
-// PERSONNEL : LECTURE TEMPS REEL
-// ======================================
-
-export function listenPersonnel(callback) {
-
-    return onValue(
-        personnelRef,
-        (snapshot) => {
-
-            const data = snapshot.val() || {};
-
-            const personnel = Object.entries(data).map(([id, value]) => ({
-                ...value,
-                id
-            }));
-
-            callback(personnel);
-        },
-        (error) => {
-            console.error("Erreur lecture personnel :", error);
-        }
-    );
-}
-
-// ======================================
-// PERSONNEL : AJOUT / MODIFICATION
+// PERSONNEL - AJOUT / MODIFICATION
+// Le renommage ne doit jamais écraser
+// une fiche déjà existante.
 // ======================================
 
 export async function savePersonnel(person, originalLogin = null) {
+    requireValue(person?.login?.trim(), "Identifiant personnel obligatoire.");
 
-    const login = String(person?.login || "")
-        .trim()
-        .toUpperCase();
-
-    const group = String(person?.group || "");
-
-    if (!login) {
-        throw new Error("Le grade et le nom sont obligatoires.");
-    }
+    const login = person.login.trim();
+    const newKey = safeKey(login);
+    const oldKey = originalLogin ? safeKey(originalLogin) : null;
+    const group = String(person.group || "");
 
     if (!["1", "2", "3"].includes(group)) {
-        throw new Error("Groupe invalide.");
+        throw new Error("Groupe personnel invalide.");
     }
 
-    const newKey = safeKey(login);
-
-    if (!newKey) {
-        throw new Error("Identifiant invalide.");
-    }
-
-    const data = {
+    const data = cleanObject({
+        ...person,
         login,
         group,
         active: person.active !== false
-    };
+    });
 
-    const oldKey = originalLogin
-        ? safeKey(originalLogin)
-        : null;
+    // Modification sans changement d'identifiant
+    if (oldKey && oldKey === newKey) {
+        await set(ref(db, `personnel/${newKey}`), data);
+        return;
+    }
 
-    if (oldKey && oldKey !== newKey) {
+    // Ajout ou renommage : réservation de la nouvelle clé
+    const newRef = ref(db, `personnel/${newKey}`);
 
-        // Vérifie que le nouveau login n'existe pas déjà.
-        const existingRef = ref(db, `personnel/${newKey}`);
+    const result = await runTransaction(newRef, (current) => {
+        if (current !== null) {
+            return;
+        }
 
-        // Ecriture du nouveau profil.
-        await set(existingRef, data);
+        return data;
+    });
 
-        // Suppression de l'ancien profil.
-        await remove(ref(db, `personnel/${oldKey}`));
-
-    } else {
-
-        await set(
-            ref(db, `personnel/${newKey}`),
-            data
+    if (!result.committed) {
+        throw new Error(
+            "Cet identifiant existe déjà. Aucun personnel n'a été écrasé."
         );
+    }
+
+    // Suppression de l'ancienne fiche uniquement après
+    // confirmation de l'enregistrement de la nouvelle.
+    if (oldKey) {
+        await remove(ref(db, `personnel/${oldKey}`));
     }
 }
 
 // ======================================
-// PERSONNEL : SUPPRESSION
-// Ne supprime pas les anciennes réponses
-// aux missions.
+// PERSONNEL - SUPPRESSION
 // ======================================
 
 export async function deletePersonnel(login) {
-
-    requireValue(login, "Identifiant du membre manquant.");
+    requireValue(login, "Identifiant personnel manquant.");
 
     const key = safeKey(login);
 
-    await remove(
-        ref(db, `personnel/${key}`)
-    );
+    await remove(ref(db, `personnel/${key}`));
 }
 
-// ======================================
-// FIN FIREBASE
-// ======================================
-
-console.log("BLEU4 2027 - Firebase initialisé");
+console.log("BLEU4 2027 - Firebase connecté");
