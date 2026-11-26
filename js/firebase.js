@@ -1,22 +1,24 @@
+
 // ======================================
-// BLEU4 v2 - FIREBASE
-// Point d'entrée UNIQUE vers Realtime Database.
-// Tous les autres fichiers passent par ici
-// pour lire/écrire des données.
+// BLEU4 2027 - FIREBASE
+// Missions + personnel
+// Conservation des données existantes
 // ======================================
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+
 import {
     getDatabase,
     ref,
     onValue,
     push,
     update,
-    remove
+    remove,
+    set
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
 
 // ======================================
-// CONFIG BLEU4
+// CONFIGURATION
 // ======================================
 
 const firebaseConfig = {
@@ -33,18 +35,24 @@ const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 
 const missionsRef = ref(db, "missions");
+const personnelRef = ref(db, "personnel");
 
 // ======================================
-// LECTURE (unique, temps réel)
+// UTILITAIRE : CLE FIREBASE
 // ======================================
-// Tout le reste de l'app reçoit les missions
-// via ce seul flux — pas de lecture dupliquée
-// ailleurs dans le code.
+
+export function safeKey(value) {
+    return String(value || "")
+        .trim()
+        .replace(/[.#$\[\]\/]/g, "_");
+}
+
+// ======================================
+// MISSIONS : LECTURE TEMPS REEL
+// ======================================
 
 export function listenMissions(callback) {
-
     return onValue(missionsRef, (snapshot) => {
-
         const data = snapshot.val() || {};
 
         const missions = Object.entries(data).map(([id, value]) => ({
@@ -53,21 +61,16 @@ export function listenMissions(callback) {
         }));
 
         callback(missions);
-
     }, (error) => {
-
-        console.error("Erreur lecture Realtime Database :", error);
-
+        console.error("Erreur lecture missions :", error);
     });
-
 }
 
 // ======================================
-// ECRITURE
+// MISSIONS : CREATION
 // ======================================
 
 export async function createMissionInDb(mission) {
-
     const data = {
         title: mission.title,
         description: mission.description || "",
@@ -79,68 +82,116 @@ export async function createMissionInDb(mission) {
         responses: {}
     };
 
-    // le PATRACDR est optionnel : on ne l'ajoute que
-    // si le commandement a coché la case et rempli des infos
+    // Groupe : 1, 2, 3 ou all
+    if (mission.group) {
+        data.group = String(mission.group);
+    }
+
     if (mission.patracdr) {
         data.patracdr = mission.patracdr;
     }
 
     return push(missionsRef, data);
-
 }
 
+// ======================================
+// MISSIONS : REPONSES
+// ======================================
+
 export async function setResponse(missionId, login, status) {
-
-    // clé Realtime DB : impossible d'utiliser certains
-    // caractères (. # $ [ ]) — on les nettoie par sécurité
-    const safeLogin = login.replace(/[.#$\[\]]/g, "_");
-
-    // on met à jour uniquement le champ "status" de l'entrée :
-    // si des jours avaient déjà été précisés, ils sont conservés.
-    // (si l'entrée existante était encore l'ancien format "texte simple",
-    // elle est automatiquement convertie au nouveau format objet)
-    const entryRef = ref(db, `missions/${missionId}/responses/${safeLogin}`);
+    const key = safeKey(login);
+    const entryRef = ref(db, `missions/${missionId}/responses/${key}`);
 
     await update(entryRef, { status });
-
 }
 
 export async function setResponseDays(missionId, login, days) {
-
-    const safeLogin = login.replace(/[.#$\[\]]/g, "_");
-
-    const entryRef = ref(db, `missions/${missionId}/responses/${safeLogin}`);
+    const key = safeKey(login);
+    const entryRef = ref(db, `missions/${missionId}/responses/${key}`);
 
     await update(entryRef, { days });
-
 }
 
 export async function removeResponse(missionId, login) {
-
-    // retire uniquement la réponse de CETTE personne,
-    // pas besoin de supprimer toute la mission
-    const safeLogin = login.replace(/[.#$\[\]]/g, "_");
-
-    const entryRef = ref(db, `missions/${missionId}/responses/${safeLogin}`);
+    const key = safeKey(login);
+    const entryRef = ref(db, `missions/${missionId}/responses/${key}`);
 
     await remove(entryRef);
-
 }
 
+// ======================================
+// MISSIONS : MODIFICATION / SUPPRESSION
+// ======================================
+
 export async function deleteMissionInDb(missionId) {
-
-    const missionRef = ref(db, `missions/${missionId}`);
-
-    await remove(missionRef);
-
+    await remove(ref(db, `missions/${missionId}`));
 }
 
 export async function updateMissionInDb(missionId, fields) {
+    await update(ref(db, `missions/${missionId}`), fields);
+}
 
-    // ne touche que les champs fournis (titre, dates, lieu...),
-    // les réponses des membres ne sont jamais écrasées ici
-    const missionRef = ref(db, `missions/${missionId}`);
+// ======================================
+// PERSONNEL : LECTURE TEMPS REEL
+// ======================================
 
-    await update(missionRef, fields);
+export function listenPersonnel(callback) {
+    return onValue(personnelRef, (snapshot) => {
+        const data = snapshot.val() || {};
 
+        const personnel = Object.entries(data).map(([id, value]) => ({
+            id,
+            ...value
+        }));
+
+        callback(personnel);
+    }, (error) => {
+        console.error("Erreur lecture personnel :", error);
+    });
+}
+
+// ======================================
+// PERSONNEL : AJOUT / MODIFICATION
+// ======================================
+
+export async function savePersonnel(person, originalLogin = null) {
+    const login = String(person.login || "").trim().toUpperCase();
+    const group = String(person.group || "");
+
+    if (!login) {
+        throw new Error("Le grade et le nom sont obligatoires.");
+    }
+
+    if (!["1", "2", "3"].includes(group)) {
+        throw new Error("Groupe invalide.");
+    }
+
+    const newKey = safeKey(login);
+
+    const data = {
+        login,
+        group,
+        active: person.active !== false
+    };
+
+    const oldKey = originalLogin
+        ? safeKey(originalLogin)
+        : null;
+
+    // Si le login change, on déplace la fiche.
+    if (oldKey && oldKey !== newKey) {
+        await set(ref(db, `personnel/${newKey}`), data);
+        await remove(ref(db, `personnel/${oldKey}`));
+    } else {
+        await set(ref(db, `personnel/${newKey}`), data);
+    }
+}
+
+// ======================================
+// PERSONNEL : SUPPRESSION
+// ======================================
+
+export async function deletePersonnel(login) {
+    const key = safeKey(login);
+    await remove(ref(db, `personnel/${key}`));
 }
