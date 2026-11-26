@@ -1192,6 +1192,258 @@ height:10px;
 button{
 
 padding:10px;
+/* ==========================================
+   BLEU4 2027 - CORRECTIONS ET COMPLEMENTS
+========================================== */
+
+/* IMPORTANT : gestion générale des éléments masqués */
+
+.hidden {
+    display: none !important;
+}
+
+/* ==========================================
+   ECRAN DE DEMARRAGE
+========================================== */
+
+#splashScreen {
+    position: fixed;
+    inset: 0;
+    background: #000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+    opacity: 1;
+    transition: opacity .8s ease;
+}
+
+#splashScreen.fade-out {
+    opacity: 0;
+    pointer-events: none;
+}
+
+.splash-content {
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+}
+
+.splash-content h1 {
+    color: var(--gold);
+    font-size: 42px;
+}
+
+.splash-content p {
+    color: var(--text-muted);
+    letter-spacing: 2px;
+}
+
+/* ==========================================
+   BARRE SUPERIEURE
+========================================== */
+
+.topbar-brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.topbar-logo {
+    width: 48px;
+    height: 48px;
+    object-fit: contain;
+}
+
+.topbar-brand h1 {
+    color: var(--gold);
+    font-size: 28px;
+    line-height: 1;
+}
+
+.topbar-brand span {
+    color: var(--text-muted);
+    font-size: 11px;
+    letter-spacing: 1px;
+}
+
+.topbar-user {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+/* ==========================================
+   FORMULAIRES
+========================================== */
+
+.form-group {
+    display: flex;
+    flex-direction: column;
+    margin-bottom: 12px;
+}
+
+.form-group label {
+    margin-bottom: 3px;
+}
+
+.form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 15px;
+}
+
+.form-group small {
+    color: var(--text-muted);
+    font-size: 12px;
+    margin-top: -8px;
+    margin-bottom: 8px;
+}
+
+/* ==========================================
+   SECTIONS REPLIABLES
+========================================== */
+
+.section-toggle {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.section-toggle::after {
+    content: none;
+}
+
+.toggle-arrow {
+    color: var(--gold);
+    font-size: 22px;
+}
+
+/* ==========================================
+   BANDEAU MISSIONS EN ATTENTE
+========================================== */
+
+#pendingBanner {
+    margin-bottom: 20px;
+}
+
+#pendingBanner:not(.hidden) {
+    display: block;
+}
+
+/* ==========================================
+   CALENDRIER - CONFORT MOBILE
+========================================== */
+
+.day {
+    overflow: hidden;
+}
+
+.day-number {
+    color: var(--text);
+}
+
+.day.selected {
+    border: 2px solid var(--gold);
+}
+
+/* ==========================================
+   BOUTONS ET INTERACTIONS
+========================================== */
+
+button:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+    outline: 2px solid var(--gold);
+    outline-offset: 2px;
+}
+
+button:disabled {
+    opacity: .5;
+    cursor: not-allowed;
+    transform: none;
+}
+
+/* ==========================================
+   RESPONSIVE
+========================================== */
+
+@media(max-width: 768px) {
+
+    .topbar {
+        padding: 12px;
+    }
+
+    .topbar-logo {
+        width: 38px;
+        height: 38px;
+    }
+
+    .topbar-brand h1 {
+        font-size: 23px;
+    }
+
+    .topbar-brand span {
+        font-size: 9px;
+    }
+
+    .topbar-user {
+        gap: 8px;
+    }
+
+    #userInfo {
+        font-size: 12px;
+    }
+
+    #logoutBtn {
+        padding: 8px 10px;
+        font-size: 11px;
+    }
+
+    .form-row {
+        grid-template-columns: 1fr;
+        gap: 0;
+    }
+
+}
+
+@media(max-width: 500px) {
+
+    .topbar {
+        align-items: center;
+        gap: 8px;
+    }
+
+    .topbar-user {
+        flex-direction: column;
+        align-items: flex-end;
+    }
+
+    .topbar-brand span {
+        display: none;
+    }
+
+    .card {
+        padding: 14px;
+    }
+
+    .calendar {
+        gap: 3px;
+    }
+
+    .weekdays {
+        font-size: 11px;
+    }
+
+    .day {
+        min-height: 58px;
+    }
+
+}
+
 
 }
 
