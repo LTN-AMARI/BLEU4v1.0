@@ -2,15 +2,16 @@
 // ======================================
 // BLEU4 2027 - AUTHENTIFICATION
 // Membres : grade + nom + groupe
-// Commandement : profil + code
+// Commandement : profil + code + grade + nom
 // ======================================
 
+// CONSERVE ICI TES CODES ACTUELS
 const COMMAND_PROFILES = {
-    CDS: "scorpion2027",
-    SOA: "bleucdt",
-    CDG1: "bleu41",
-    CDG2: "bleu42",
-    CDG3: "bleu43"
+    CDS: "REMETS_TON_CODE_CDS",
+    SOA: "REMETS_TON_CODE_SOA",
+    CDG1: "REMETS_TON_CODE_CDG1",
+    CDG2: "REMETS_TON_CODE_CDG2",
+    CDG3: "REMETS_TON_CODE_CDG3"
 };
 
 // ======================================
@@ -19,15 +20,44 @@ const COMMAND_PROFILES = {
 
 const roleSelect = document.getElementById("role");
 const loginInput = document.getElementById("login");
-
 const groupBox = document.getElementById("groupBox");
 const groupSelect = document.getElementById("group");
-
 const passwordBox = document.getElementById("passwordBox");
 const passwordInput = document.getElementById("password");
-
 const loginButton = document.getElementById("btnLogin");
 const loginError = document.getElementById("loginError");
+
+// ======================================
+// CHAMP GRADE ET NOM
+// Ajout automatique sans modifier index.html
+// ======================================
+
+let commandNameInput = document.getElementById("commandName");
+
+if (!commandNameInput && loginInput) {
+    const wrapper = document.createElement("div");
+    wrapper.id = "commandNameBox";
+    wrapper.style.display = "none";
+    wrapper.style.marginTop = "10px";
+
+    const label = document.createElement("label");
+    label.htmlFor = "commandName";
+    label.textContent = "GRADE ET NOM";
+
+    commandNameInput = document.createElement("input");
+    commandNameInput.id = "commandName";
+    commandNameInput.type = "text";
+    commandNameInput.placeholder = "Ex : LTN AMARI";
+    commandNameInput.autocomplete = "name";
+    commandNameInput.style.width = "100%";
+
+    wrapper.appendChild(label);
+    wrapper.appendChild(commandNameInput);
+
+    loginInput.insertAdjacentElement("afterend", wrapper);
+}
+
+const commandNameBox = document.getElementById("commandNameBox");
 
 // ======================================
 // AFFICHAGE DU FORMULAIRE
@@ -35,27 +65,27 @@ const loginError = document.getElementById("loginError");
 
 function updateLoginForm() {
     const role = roleSelect?.value;
+    const isCommand = role === "commandement";
 
     if (groupBox) {
-        groupBox.style.display =
-            role === "membre" ? "block" : "none";
+        groupBox.style.display = role === "membre" ? "block" : "none";
     }
 
     if (passwordBox) {
-        passwordBox.style.display =
-            role === "commandement" ? "block" : "none";
+        passwordBox.style.display = isCommand ? "block" : "none";
+    }
+
+    if (commandNameBox) {
+        commandNameBox.style.display = isCommand ? "block" : "none";
     }
 
     if (loginInput) {
-        loginInput.placeholder =
-            role === "commandement"
-                ? "CDS, SOA, CDG1, CDG2 ou CDG3"
-                : "Ex : SDT PINGOUIN";
+        loginInput.placeholder = isCommand
+            ? "CDS, SOA, CDG1, CDG2 ou CDG3"
+            : "Ex : SDT PINGOUIN";
     }
 
-    if (loginError) {
-        loginError.textContent = "";
-    }
+    if (loginError) loginError.textContent = "";
 }
 
 roleSelect?.addEventListener("change", updateLoginForm);
@@ -85,10 +115,7 @@ function login() {
         return;
     }
 
-    // ----------------------------------
-    // CONNEXION MEMBRE
-    // ----------------------------------
-
+    // MEMBRE
     if (role === "membre") {
         const group = groupSelect?.value;
 
@@ -99,23 +126,21 @@ function login() {
 
         const user = {
             login: loginValue,
+            displayName: loginValue,
             role: "membre",
             group: String(group)
         };
 
         localStorage.setItem("BLEU4_USER", JSON.stringify(user));
-
         window.location.href = "app.html";
         return;
     }
 
-    // ----------------------------------
-    // CONNEXION COMMANDEMENT
-    // ----------------------------------
-
+    // COMMANDEMENT
     if (role === "commandement") {
         const profile = loginValue.toUpperCase();
         const password = passwordInput?.value || "";
+        const displayName = commandNameInput?.value.trim() || "";
 
         if (!Object.prototype.hasOwnProperty.call(COMMAND_PROFILES, profile)) {
             showError("Profil commandement inconnu.");
@@ -131,6 +156,12 @@ function login() {
             return;
         }
 
+        if (!displayName) {
+            showError("Renseigne ton grade et ton nom.");
+            commandNameInput?.focus();
+            return;
+        }
+
         let group = null;
 
         if (profile.startsWith("CDG")) {
@@ -139,13 +170,13 @@ function login() {
 
         const user = {
             login: profile,
+            displayName,
             role: "commandement",
             profile,
             group
         };
 
         localStorage.setItem("BLEU4_USER", JSON.stringify(user));
-
         window.location.href = "app.html";
         return;
     }
@@ -163,12 +194,16 @@ passwordInput?.addEventListener("keydown", event => {
     if (event.key === "Enter") login();
 });
 
+commandNameInput?.addEventListener("keydown", event => {
+    if (event.key === "Enter") login();
+});
+
 loginInput?.addEventListener("keydown", event => {
     if (event.key === "Enter") {
         if (roleSelect?.value === "membre") {
             login();
         } else {
-            passwordInput?.focus();
+            commandNameInput?.focus();
         }
     }
 });
