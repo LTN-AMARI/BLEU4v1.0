@@ -6,19 +6,13 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-    <title>BLEU4 v2</title>
+    <title>BLEU4 2027</title>
 
     <meta name="theme-color" content="#0d0d0d">
+    <meta name="description" content="BLEU4 - Gestion des activités">
 
     <link rel="manifest" href="manifest.json">
-    <link rel="icon" href="assets/logo.png?v=2">
-    <link rel="apple-touch-icon" href="assets/logo-icon.png?v=2">
-
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-
-    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Oswald:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-
+    <link rel="icon" href="assets/logo.png">
     <link rel="stylesheet" href="css/style.css">
 </head>
 
@@ -29,328 +23,286 @@
     =================================== -->
 
     <div id="splashScreen">
-        <div class="splash-content">
-            <img src="assets/logo.png" alt="BLEU4" class="splash-logo">
-            <h1>BLEU4</h1>
-            <p>GESTION DES ACTIVITÉS</p>
-            <div class="splash-loader"></div>
-        </div>
+        <img src="assets/logo.png" alt="BLEU4" class="splash-logo">
+        <h1>BLEU4</h1>
+        <p>GESTION DES ACTIVITÉS</p>
     </div>
 
-
     <!-- ==================================
-         BARRE SUPERIEURE
+         ENTETE
     =================================== -->
 
-    <header class="topbar">
-
-        <div class="topbar-brand">
-            <img src="assets/logo.png" alt="BLEU4" class="topbar-logo">
+    <header class="app-header">
+        <div class="header-brand">
+            <img src="assets/logo.png" alt="BLEU4">
             <div>
                 <h1>BLEU4</h1>
-                <span>GESTION DES ACTIVITÉS</span>
+                <p>GESTION DES ACTIVITÉS 2027</p>
             </div>
         </div>
 
-        <div class="topbar-user">
+        <div class="header-user">
             <span id="userInfo"></span>
-            <button id="logoutBtn" class="btn-delete">
+            <button id="logoutBtn" class="btn-secondary">
                 Déconnexion
             </button>
         </div>
-
     </header>
 
-
-    <!-- ==================================
-         CONTENU PRINCIPAL
-    =================================== -->
-
-    <main class="container">
-
+    <main class="app-container">
 
         <!-- ==================================
-             NOTIFICATIONS / MISSIONS EN ATTENTE
+             ALERTES
         =================================== -->
 
-        <div id="pendingBanner" class="hidden"></div>
-
+        <div id="pendingBanner" class="pending-banner hidden"></div>
 
         <!-- ==================================
              CALENDRIER
         =================================== -->
 
-        <section class="card calendar-card">
+        <section class="panel calendar-panel">
 
-            <div class="calendar-header">
+            <div class="section-heading">
+                <h2>CALENDRIER</h2>
 
-                <button id="prevMonth" class="calendar-nav">
-                    &#10094;
-                </button>
+                <div class="calendar-navigation">
+                    <button id="prevMonth" class="btn-secondary" aria-label="Mois précédent">
+                        &#10094;
+                    </button>
 
-                <h2 id="monthTitle"></h2>
+                    <h3 id="monthTitle"></h3>
 
-                <button id="nextMonth" class="calendar-nav">
-                    &#10095;
-                </button>
-
+                    <button id="nextMonth" class="btn-secondary" aria-label="Mois suivant">
+                        &#10095;
+                    </button>
+                </div>
             </div>
 
-            <div id="weekdays" class="weekdays"></div>
+            <div id="weekdays" class="weekdays">
+                <div>LUN</div>
+                <div>MAR</div>
+                <div>MER</div>
+                <div>JEU</div>
+                <div>VEN</div>
+                <div>SAM</div>
+                <div>DIM</div>
+            </div>
 
-            <div id="calendar" class="calendar"></div>
+            <div id="calendar" class="calendar-grid"></div>
 
-        </section>
-
-
-        <!-- ==================================
-             MISSIONS DU JOUR
-        =================================== -->
-
-        <section class="card">
-
-            <h2 class="section-title">
-                MISSIONS DU JOUR
-            </h2>
-
-            <h3 id="selectedDateTitle"></h3>
+            <h3 id="selectedDateTitle" class="selected-date-title">
+                Missions du jour
+            </h3>
 
             <div id="missions"></div>
 
         </section>
 
-
         <!-- ==================================
-             CREATION DE MISSION
-             CDS ET CDG
+             CREATION MISSION
         =================================== -->
 
-        <section id="createMissionBox" class="card">
+        <section id="createMissionBox" class="panel">
 
             <h2 class="section-toggle">
-                CRÉER UNE MISSION
-                <span class="toggle-arrow">＋</span>
+                <span>＋</span> CRÉER UNE MISSION
             </h2>
 
-            <div class="section-body hidden">
+            <div class="section-content">
 
                 <div class="form-group">
-
-                    <label for="mTitle">Titre de la mission</label>
+                    <label for="mTitle">Intitulé de la mission *</label>
                     <input
                         type="text"
                         id="mTitle"
-                        placeholder="Titre de la mission"
+                        placeholder="Nom de la mission"
+                        maxlength="120"
                     >
-
                 </div>
 
-
                 <div class="form-group">
-
                     <label for="mDesc">Description</label>
                     <textarea
                         id="mDesc"
                         rows="3"
-                        placeholder="Description de la mission"
+                        placeholder="Détails de la mission"
                     ></textarea>
-
                 </div>
 
-
-                <div class="form-row">
+                <div class="form-grid">
 
                     <div class="form-group">
-
-                        <label for="mStart">Date de début</label>
+                        <label for="mStart">Date de début *</label>
                         <input
                             type="text"
                             id="mStart"
-                            inputmode="numeric"
-                            maxlength="10"
                             placeholder="JJ/MM/AAAA"
+                            inputmode="numeric"
                         >
-
                     </div>
 
                     <div class="form-group">
-
-                        <label for="mEnd">Date de fin</label>
+                        <label for="mEnd">Date de fin *</label>
                         <input
                             type="text"
                             id="mEnd"
-                            inputmode="numeric"
-                            maxlength="10"
                             placeholder="JJ/MM/AAAA"
+                            inputmode="numeric"
                         >
-
                     </div>
 
                 </div>
 
-
                 <div class="form-group">
-
                     <label for="mLocation">Lieu</label>
                     <input
                         type="text"
                         id="mLocation"
                         placeholder="Lieu de la mission"
                     >
-
                 </div>
-
 
                 <div class="form-group">
-
-                    <label for="mConcerned">Personnel concerné</label>
-                    <input
-                        type="text"
-                        id="mConcerned"
-                        placeholder="Tous ou noms séparés par des virgules"
-                    >
-
-                    <small>
-                        Indiquer « Tous » ou les noms des personnels concernés.
-                    </small>
-
+                    <label for="mGroup">Groupe concerné</label>
+                    <select id="mGroup">
+                        <option value="1">Groupe 1</option>
+                        <option value="2">Groupe 2</option>
+                        <option value="3">Groupe 3</option>
+                        <option value="all">Tous les groupes</option>
+                    </select>
                 </div>
 
+                <div class="form-group">
+                    <label for="mConcerned">Personnel concerné</label>
+                    <textarea
+                        id="mConcerned"
+                        rows="2"
+                        placeholder="Tous ou saisir les grades et noms concernés"
+                    ></textarea>
+                    <small>
+                        Indique « Tous » ou les noms des personnels concernés.
+                    </small>
+                </div>
 
                 <!-- PATRACDR -->
 
-                <div class="patracdr-toggle">
+                <div class="patracdr-container">
 
-                    <label class="checkbox-label">
-
-                        <input
-                            type="checkbox"
-                            id="patracdrToggle"
-                        >
-
-                        Ajouter un PATRACDR
-
+                    <label class="checkbox-line">
+                        <input type="checkbox" id="patracdrToggle">
+                        <span>Ajouter un PATRACDR</span>
                     </label>
 
+                    <div id="patracdrFields" class="hidden">
+
+                        <div class="form-group">
+                            <label for="pPersonnel">Personnel</label>
+                            <textarea id="pPersonnel" rows="2"></textarea>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="pArmement">Armement</label>
+                            <textarea id="pArmement" rows="2"></textarea>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="pTenue">Tenue</label>
+                            <textarea id="pTenue" rows="2"></textarea>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="pRadio">Radio / Transmissions</label>
+                            <textarea id="pRadio" rows="2"></textarea>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="pAlimentation">Alimentation</label>
+                            <textarea id="pAlimentation" rows="2"></textarea>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="pCamouflage">Camouflage</label>
+                            <textarea id="pCamouflage" rows="2"></textarea>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="pDivers">Divers</label>
+                            <textarea id="pDivers" rows="2"></textarea>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="pRassemblement">Lieu et heure de rassemblement</label>
+                            <textarea id="pRassemblement" rows="2"></textarea>
+                        </div>
+
+                    </div>
                 </div>
 
-
-                <div id="patracdrFields" class="patracdr-fields hidden">
-
-                    <h3>PATRACDR</h3>
-
-                    <div class="form-group">
-                        <label for="pPersonnel">Personnel</label>
-                        <textarea id="pPersonnel" rows="2"></textarea>
-                    </div>
-
-                    <div class="form-group">
-                        <label for="pArmement">Armement</label>
-                        <textarea id="pArmement" rows="2"></textarea>
-                    </div>
-
-                    <div class="form-group">
-                        <label for="pTenue">Tenue</label>
-                        <textarea id="pTenue" rows="2"></textarea>
-                    </div>
-
-                    <div class="form-group">
-                        <label for="pRadio">Radio</label>
-                        <textarea id="pRadio" rows="2"></textarea>
-                    </div>
-
-                    <div class="form-group">
-                        <label for="pAlimentation">Alimentation</label>
-                        <textarea id="pAlimentation" rows="2"></textarea>
-                    </div>
-
-                    <div class="form-group">
-                        <label for="pCamouflage">Camouflage</label>
-                        <textarea id="pCamouflage" rows="2"></textarea>
-                    </div>
-
-                    <div class="form-group">
-                        <label for="pDivers">Divers</label>
-                        <textarea id="pDivers" rows="2"></textarea>
-                    </div>
-
-                    <div class="form-group">
-                        <label for="pRassemblement">Rassemblement</label>
-                        <textarea id="pRassemblement" rows="2"></textarea>
-                    </div>
-
-                </div>
-
-
-                <button id="createBtn" class="btn-present">
+                <button id="createBtn" class="btn-primary">
                     CRÉER LA MISSION
                 </button>
 
             </div>
-
         </section>
-
 
         <!-- ==================================
              TOUTES LES MISSIONS
         =================================== -->
 
-        <section id="allMissionsBox" class="card">
+        <section id="allMissionsBox" class="panel">
 
             <h2 class="section-toggle">
-                MISSIONS EN COURS
-                <span class="toggle-arrow">＋</span>
+                <span>▤</span> GESTION DES MISSIONS
             </h2>
 
-            <div class="section-body hidden">
+            <div class="section-content">
                 <div id="allMissionsList"></div>
             </div>
 
         </section>
 
-
         <!-- ==================================
              MISSIONS ARCHIVEES
         =================================== -->
 
-        <section id="archivedMissionsBox" class="card">
+        <section id="archivedMissionsBox" class="panel">
 
             <h2 class="section-toggle">
-                MISSIONS ARCHIVÉES
-                <span class="toggle-arrow">＋</span>
+                <span>▣</span> MISSIONS TERMINÉES
             </h2>
 
-            <div class="section-body hidden">
+            <div class="section-content">
                 <div id="archivedMissionsList"></div>
             </div>
 
         </section>
 
-
         <!-- ==================================
-             COMPTEUR DE PRESENCE
+             SUIVI DES PRESENCES
         =================================== -->
 
-        <section id="presenceCounterBox" class="card">
+        <section id="presenceCounterBox" class="panel">
 
             <h2 class="section-toggle">
-                SUIVI DES PRÉSENCES
-                <span class="toggle-arrow">＋</span>
+                <span>☷</span> SUIVI DES PRÉSENCES
             </h2>
 
-            <div class="section-body hidden">
+            <div class="section-content">
                 <div id="presenceCounterList"></div>
             </div>
 
         </section>
 
-
     </main>
 
-
     <!-- ==================================
-         APPLICATION JAVASCRIPT
+         PIED DE PAGE
     =================================== -->
+
+    <footer class="app-footer">
+        BLEU4 2027 — Gestion des activités
+    </footer>
 
     <script type="module" src="js/app.js"></script>
 
