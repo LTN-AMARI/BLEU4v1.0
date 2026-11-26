@@ -1,281 +1,884 @@
-<!DOCTYPE html>
-<html lang="fr">
 
-<head>
+// ======================================
+// BLEU4 2027 - APPLICATION PRINCIPALE
+// ======================================
 
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+import {
+    listenMissions,
+    createMissionInDb,
+    listenPersonnel,
+    savePersonnel,
+    deletePersonnel
+} from "./firebase.js";
 
-    <title>BLEU4 v2</title>
+import {
+    initCalendar,
+    setCalendarMissions,
+    getSelectedDate
+} from "./calendar.js";
 
-    <meta name="theme-color" content="#0d0d0d">
+import {
+    renderMissionList,
+    renderAllMissions,
+    isUserConcerned,
+    renderPresenceCounter,
+    renderArchivedMissions,
+    setPersonnelList
+} from "./missions.js";
 
-    <link rel="manifest" href="manifest.json">
-    <link rel="icon" href="assets/logo.png?v=2">
-    <link rel="apple-touch-icon" href="assets/logo-icon.png?v=2">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-title" content="BLEU4">
+import {
+    frToIso,
+    autoFormatDateInput,
+    getTodayIso
+} from "./dateUtils.js";
 
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Oswald:wght@400;600;700&display=swap" rel="stylesheet">
+import {
+    playAlertSound,
+    showMissionBanner,
+    requestNotificationPermission,
+    showSystemNotification
+} from "./notify.js";
 
-    <link rel="stylesheet" href="css/style.css">
+// ======================================
+// SESSION
+// ======================================
 
-</head>
+const user = JSON.parse(localStorage.getItem("BLEU4_USER") || "null");
 
-<body>
+if (!user) {
+    window.location.href = "index.html";
+    throw new Error("Utilisateur non connecté");
+}
 
-<!-- ===================== -->
-<!-- ECRAN DE DEMARRAGE -->
-<!-- ===================== -->
+const profile = user.profile || "";
+const isMember = user.role === "membre";
+const isCDS = profile === "CDS";
+const isSOA = profile === "SOA";
+const isCDG = ["CDG1", "CDG2", "CDG3"].includes(profile);
+const canManage = isCDS || isCDG;
 
-<div id="splashScreen" class="splash-screen">
+if (isCDG) {
+    user.group = profile.replace("CDG", "");
+}
 
-    <img src="assets/logo.png?v=2" alt="1ère Compagnie B4" class="splash-logo">
+// ======================================
+// ELEMENTS PRINCIPAUX
+// ======================================
 
-</div>
+const splashScreen = document.getElementById("splashScreen");
+const userInfo = document.getElementById("userInfo");
+const logoutBtn = document.getElementById("logoutBtn");
 
-<!-- ===================== -->
-<!-- TOPBAR -->
-<!-- ===================== -->
+const createMissionBox = document.getElementById("createMissionBox");
+const createBtn = document.getElementById("createBtn");
 
-<header class="topbar">
+const allMissionsBox = document.getElementById("allMissionsBox");
+const archivedMissionsBox = document.getElementById("archivedMissionsBox");
+const presenceCounterBox = document.getElementById("presenceCounterBox");
 
-    <div id="userInfo">
-        Chargement...
-    </div>
+const pendingBanner = document.getElementById("pendingBanner");
 
-    <button id="logoutBtn">
-        Déconnexion
-    </button>
+// ======================================
+// ETAT APPLICATION
+// ======================================
 
-</header>
+let missions = [];
+let personnel = [];
 
-<!-- ===================== -->
-<!-- BANDEAU MISSIONS EN ATTENTE (membre) -->
-<!-- ===================== -->
+let missionsLoaded = false;
+let personnelLoaded = false;
 
-<div id="pendingBanner" class="pending-banner hidden"></div>
+let previousMissions = {};
+let splashHidden = false;
 
-<!-- ===================== -->
-<!-- CONTENU -->
-<!-- ===================== -->
+const splashStart = Date.now();
 
-<main class="container">
+// ======================================
+// IDENTIFICATION VISUELLE
+// ======================================
 
-    <!-- ===================== -->
-    <!-- CALENDRIER -->
-    <!-- ===================== -->
+if (userInfo) {
+    let label = user.login;
 
-    <section class="card">
+    if (isMember) {
+        label += ` — GROUPE ${user.group}`;
+    } else {
+        label += " — COMMANDEMENT";
+    }
 
-        <div class="calendar-header">
+    userInfo.innerText = label;
+}
 
-            <button id="prevMonth">
-                ◀
-            </button>
+if (logoutBtn) {
+    logoutBtn.addEventListener("click", () => {
+        localStorage.removeItem("BLEU4_USER");
+        window.location.href = "index.html";
+    });
+}
 
-            <h2 id="monthTitle">
-                Mois
-            </h2>
+// ======================================
+// DROITS D'AFFICHAGE
+// ======================================
 
-            <button id="nextMonth">
-                ▶
-            </button>
+if (isMember) {
+    hideElement(createMissionBox);
+    hideElement(allMissionsBox);
+    hideElement(archivedMissionsBox);
+    hideElement(presenceCounterBox);
+} else {
+    showElement(allMissionsBox);
+    showElement(archivedMissionsBox);
+    showElement(presenceCounterBox);
 
-        </div>
+    if (!canManage) {
+        hideElement(createMissionBox);
+    }
+}
 
-        <!-- jours semaine -->
+// ======================================
+// OUTILS AFFICHAGE
+// ======================================
 
-        <div id="weekdays" class="weekdays">
+function hideElement(element) {
+    if (element) element.classList.add("hidden");
+}
 
-            <div>Lun</div>
-            <div>Mar</div>
-            <div>Mer</div>
-            <div>Jeu</div>
-            <div>Ven</div>
-            <div>Sam</div>
-            <div>Dim</div>
+function showElement(element) {
+    if (element) element.classList.remove("hidden");
+}
 
-        </div>
+function normalize(value) {
+    return String(value || "").trim().toUpperCase();
+}
 
-        <!-- calendrier -->
+function escapeHtml(value) {
+    const div = document.createElement("div");
+    div.textContent = String(value ?? "");
+    return div.innerHTML;
+}
 
-        <div id="calendar" class="calendar"></div>
+// ======================================
+// ECRAN DE CHARGEMENT
+// ======================================
 
-    </section>
+function hideSplash() {
 
-    <!-- ===================== -->
-    <!-- MISSIONS DU JOUR SELECTIONNE -->
-    <!-- ===================== -->
+    if (splashHidden || !splashScreen) return;
 
-    <section class="card">
+    const elapsed = Date.now() - splashStart;
+    const remaining = Math.max(0, 2000 - elapsed);
 
-        <h2 id="selectedDateTitle">
+    setTimeout(() => {
+        splashScreen.classList.add("hidden");
+        splashHidden = true;
+    }, remaining);
+}
 
-            Sélectionnez un jour
+const splashTimeout = setTimeout(() => {
+    hideSplash();
+}, 8000);
 
+// ======================================
+// NOTIFICATIONS
+// ======================================
+
+requestNotificationPermission();
+
+function notifyUser(title, message) {
+
+    showMissionBanner(message);
+    playAlertSound();
+    showSystemNotification(title, message);
+}
+
+// ======================================
+// SECTIONS REPLIABLES
+// ======================================
+
+document.querySelectorAll(".section-toggle").forEach(toggle => {
+
+    toggle.addEventListener("click", () => {
+
+        const body = toggle.nextElementSibling;
+
+        if (!body) return;
+
+        body.classList.toggle("hidden");
+
+        const arrow = toggle.querySelector(".toggle-arrow");
+
+        if (arrow) {
+            arrow.textContent = body.classList.contains("hidden") ? "＋" : "－";
+        }
+    });
+});
+
+// ======================================
+// CALENDRIER
+// ======================================
+
+initCalendar();
+
+function refreshCalendar() {
+
+    setCalendarMissions(missions);
+
+    const selectedDate = getSelectedDate();
+
+    if (selectedDate) {
+        renderMissionList(missions, selectedDate, user);
+    }
+}
+
+document.getElementById("prevMonth")?.addEventListener("click", refreshCalendar);
+document.getElementById("nextMonth")?.addEventListener("click", refreshCalendar);
+
+// ======================================
+// AFFICHAGE GENERAL
+// ======================================
+
+function refreshApplication() {
+
+    refreshCalendar();
+
+    renderAllMissions(missions, user);
+    renderArchivedMissions(missions, user);
+    renderPresenceCounter(missions, user);
+
+    updatePendingBanner();
+}
+
+// ======================================
+// PERSONNEL
+// ======================================
+
+function normalizePersonnel(data) {
+
+    if (Array.isArray(data)) {
+        return data.filter(Boolean);
+    }
+
+    if (!data || typeof data !== "object") {
+        return [];
+    }
+
+    return Object.entries(data).map(([key, value]) => ({
+        ...value,
+        login: value.login || key
+    }));
+}
+
+function refreshPersonnel() {
+
+    setPersonnelList(personnel);
+
+    renderPersonnelList();
+    refreshApplication();
+}
+
+// ======================================
+// INTERFACE DE GESTION DU PERSONNEL
+// CDS UNIQUEMENT
+// ======================================
+
+let personnelBox = null;
+let editingPersonnelLogin = null;
+
+function createPersonnelInterface() {
+
+    if (!isCDS) return;
+
+    personnelBox = document.createElement("section");
+    personnelBox.id = "personnelManagementBox";
+    personnelBox.className = "card";
+
+    personnelBox.innerHTML = `
+        <h2 class="section-toggle">
+            GESTION DU PERSONNEL
+            <span class="toggle-arrow">＋</span>
         </h2>
 
-        <div id="missions">
-
-        </div>
-
-    </section>
-
-    <!-- ===================== -->
-    <!-- CREATION MISSION -->
-    <!-- ===================== -->
-
-    <section id="createMissionBox" class="card">
-
-        <h2 class="section-toggle">Créer une mission</h2>
-
         <div class="section-body hidden">
 
-            <input
-                id="mTitle"
-                type="text"
-                placeholder="Titre">
+            <div class="personnel-form">
 
-            <textarea
-                id="mDesc"
-                placeholder="Description"></textarea>
+                <label>Grade et nom</label>
+                <input id="personnelLoginInput"
+                    type="text"
+                    placeholder="Ex : SGT DUPONT">
 
-            <div class="row">
+                <label>Groupe</label>
+                <select id="personnelGroupInput">
+                    <option value="1">Groupe 1</option>
+                    <option value="2">Groupe 2</option>
+                    <option value="3">Groupe 3</option>
+                </select>
 
-                <div>
+                <div class="actions">
+                    <button id="personnelSaveBtn" class="btn-present">
+                        Ajouter
+                    </button>
 
-                    <label>Date début</label>
-
-                    <input
-                        id="mStart"
-                        type="text"
-                        inputmode="numeric"
-                        maxlength="10"
-                        placeholder="JJ/MM/AAAA">
-
-                </div>
-
-                <div>
-
-                    <label>Date fin</label>
-
-                    <input
-                        id="mEnd"
-                        type="text"
-                        inputmode="numeric"
-                        maxlength="10"
-                        placeholder="JJ/MM/AAAA">
-
+                    <button id="personnelCancelBtn" class="btn-delete hidden">
+                        Annuler
+                    </button>
                 </div>
 
             </div>
 
-            <input
-                id="mLocation"
-                type="text"
-                placeholder="Lieu">
+            <hr>
 
-            <input
-                id="mConcerned"
-                type="text"
-                placeholder="Concernés : Tous, ou noms séparés par virgule (ex: SDT PINGOUIN, CPL DUPONT)">
-
-            <label class="checkbox-label">
-                <input type="checkbox" id="patracdrToggle">
-                Ajouter un PATRACDR à cette mission
-            </label>
-
-            <div id="patracdrFields" class="patracdr-fields hidden">
-
-                <label>Personnel</label>
-                <input type="text" id="pPersonnel" placeholder="Effectifs, qui participe...">
-
-                <label>Armement</label>
-                <input type="text" id="pArmement" placeholder="Armement, matériel...">
-
-                <label>Tenue</label>
-                <input type="text" id="pTenue" placeholder="Tenue, équipement...">
-
-                <label>Radio</label>
-                <input type="text" id="pRadio" placeholder="Fréquences, moyens de communication...">
-
-                <label>Alimentation</label>
-                <input type="text" id="pAlimentation" placeholder="Repas, eau, ravitaillement...">
-
-                <label>Camouflage</label>
-                <input type="text" id="pCamouflage" placeholder="Consignes de camouflage...">
-
-                <label>Divers</label>
-                <input type="text" id="pDivers" placeholder="Autres informations...">
-
-                <label>Rassemblement</label>
-                <input type="text" id="pRassemblement" placeholder="Lieu et heure de rassemblement...">
-
-            </div>
-
-            <button id="createBtn">
-                Créer la mission
-            </button>
+            <div id="personnelList"></div>
 
         </div>
+    `;
 
-    </section>
+    const anchor = allMissionsBox || createMissionBox;
 
-    <!-- ===================== -->
-    <!-- TOUTES LES MISSIONS (gestion, commandement) -->
-    <!-- ===================== -->
+    if (anchor?.parentNode) {
+        anchor.parentNode.insertBefore(personnelBox, anchor);
+    }
 
-    <section id="allMissionsBox" class="card">
+    const toggle = personnelBox.querySelector(".section-toggle");
 
-        <h2 class="section-toggle">Toutes les missions</h2>
+    toggle.addEventListener("click", () => {
+        const body = personnelBox.querySelector(".section-body");
+        body.classList.toggle("hidden");
 
-        <div class="section-body hidden">
-            <div id="allMissionsList"></div>
-        </div>
+        const arrow = toggle.querySelector(".toggle-arrow");
+        arrow.textContent = body.classList.contains("hidden") ? "＋" : "－";
+    });
 
-    </section>
+    document.getElementById("personnelSaveBtn")
+        .addEventListener("click", handleSavePersonnel);
 
-    <!-- ===================== -->
-    <!-- MISSIONS ARCHIVEES (commandement) -->
-    <!-- ===================== -->
+    document.getElementById("personnelCancelBtn")
+        .addEventListener("click", resetPersonnelForm);
+}
 
-    <section id="archivedMissionsBox" class="card">
+function renderPersonnelList() {
 
-        <h2 class="section-toggle">Missions archivées</h2>
+    const container = document.getElementById("personnelList");
 
-        <div class="section-body hidden">
-            <div id="archivedMissionsList"></div>
-        </div>
+    if (!container || !isCDS) return;
 
-    </section>
+    container.innerHTML = "";
 
-    <!-- ===================== -->
-    <!-- COMPTEUR DE PRESENCE (commandement) -->
-    <!-- ===================== -->
+    if (personnel.length === 0) {
+        container.innerHTML = "<p>Aucun personnel enregistré.</p>";
+        return;
+    }
 
-    <section id="presenceCounterBox" class="card">
+    const sorted = [...personnel].sort((a, b) => {
+        const groupCompare = String(a.group).localeCompare(String(b.group));
+        return groupCompare || normalize(a.login).localeCompare(normalize(b.login));
+    });
 
-        <h2 class="section-toggle">Compteur de présence</h2>
+    ["1", "2", "3"].forEach(group => {
 
-        <div class="section-body hidden">
-            <div id="presenceCounterList"></div>
-        </div>
+        const members = sorted.filter(p => String(p.group) === group);
 
-    </section>
+        const heading = document.createElement("h3");
+        heading.innerText = `GROUPE ${group} (${members.length})`;
+        container.appendChild(heading);
 
-</main>
+        members.forEach(person => {
 
-<!-- ===================== -->
-<!-- SCRIPTS -->
-<!-- ===================== -->
-<!-- firebase.js, calendar.js et missions.js sont importés -->
-<!-- directement par app.js (modules ES6) : un seul point d'entrée. -->
+            const row = document.createElement("div");
+            row.className = "response-row";
 
-<script type="module" src="js/app.js"></script>
+            const name = document.createElement("span");
+            name.className = "response-name";
+            name.innerText = person.login;
 
-</body>
+            const editBtn = document.createElement("button");
+            editBtn.className = "small btn-switch";
+            editBtn.innerText = "Modifier";
 
-</html>
+            editBtn.addEventListener("click", () => {
+                document.getElementById("personnelLoginInput").value = person.login;
+                document.getElementById("personnelGroupInput").value = String(person.group);
+
+                editingPersonnelLogin = person.login;
+
+                document.getElementById("personnelSaveBtn").innerText = "Enregistrer";
+                document.getElementById("personnelCancelBtn").classList.remove("hidden");
+            });
+
+            const deleteBtn = document.createElement("button");
+            deleteBtn.className = "small btn-delete";
+            deleteBtn.innerText = "Supprimer";
+
+            deleteBtn.addEventListener("click", async () => {
+
+                if (!confirm(`Supprimer ${person.login} du personnel ?`)) return;
+
+                deleteBtn.disabled = true;
+
+                try {
+                    await deletePersonnel(person.login);
+                } catch (error) {
+                    console.error(error);
+                    alert("Erreur lors de la suppression.");
+                    deleteBtn.disabled = false;
+                }
+            });
+
+            row.append(name, editBtn, deleteBtn);
+            container.appendChild(row);
+        });
+    });
+}
+
+async function handleSavePersonnel() {
+
+    if (!isCDS) return;
+
+    const loginInput = document.getElementById("personnelLoginInput");
+    const groupInput = document.getElementById("personnelGroupInput");
+    const saveBtn = document.getElementById("personnelSaveBtn");
+
+    const login = loginInput.value.trim().replace(/\s+/g, " ");
+    const group = groupInput.value;
+
+    if (!login) {
+        alert("Saisis un grade et un nom.");
+        return;
+    }
+
+    if (!["1", "2", "3"].includes(group)) {
+        alert("Sélectionne un groupe valide.");
+        return;
+    }
+
+    const duplicate = personnel.find(p =>
+        normalize(p.login) === normalize(login) &&
+        normalize(p.login) !== normalize(editingPersonnelLogin)
+    );
+
+    if (duplicate) {
+        alert("Ce personnel existe déjà.");
+        return;
+    }
+
+    saveBtn.disabled = true;
+
+    try {
+
+        await savePersonnel(
+            {
+                login,
+                group,
+                active: true
+            },
+            editingPersonnelLogin
+        );
+
+        resetPersonnelForm();
+
+    } catch (error) {
+        console.error(error);
+        alert("Erreur lors de l'enregistrement du personnel.");
+    } finally {
+        saveBtn.disabled = false;
+    }
+}
+
+function resetPersonnelForm() {
+
+    const loginInput = document.getElementById("personnelLoginInput");
+    const groupInput = document.getElementById("personnelGroupInput");
+    const saveBtn = document.getElementById("personnelSaveBtn");
+    const cancelBtn = document.getElementById("personnelCancelBtn");
+
+    if (!loginInput) return;
+
+    loginInput.value = "";
+    groupInput.value = "1";
+
+    editingPersonnelLogin = null;
+
+    saveBtn.innerText = "Ajouter";
+    cancelBtn.classList.add("hidden");
+}
+
+// ======================================
+// GROUPE DE LA NOUVELLE MISSION
+// ======================================
+
+function createMissionGroupField() {
+
+    if (!canManage || !createMissionBox) return;
+
+    const existing = document.getElementById("mGroup");
+
+    if (existing) {
+        if (isCDG) {
+            existing.value = user.group;
+            existing.disabled = true;
+        }
+        return;
+    }
+
+    const wrapper = document.createElement("div");
+    wrapper.className = "mission-group-field";
+
+    const label = document.createElement("label");
+    label.htmlFor = "mGroup";
+    label.innerText = "Groupe concerné";
+
+    const select = document.createElement("select");
+    select.id = "mGroup";
+
+    if (isCDS) {
+        select.innerHTML = `
+            <option value="1">Groupe 1</option>
+            <option value="2">Groupe 2</option>
+            <option value="3">Groupe 3</option>
+        `;
+    } else {
+        select.innerHTML = `<option value="${escapeHtml(user.group)}">Groupe ${escapeHtml(user.group)}</option>`;
+        select.disabled = true;
+    }
+
+    wrapper.append(label, select);
+
+    const button = createMissionBox.querySelector("#createBtn");
+
+    if (button?.parentNode) {
+        button.parentNode.insertBefore(wrapper, button);
+    } else {
+        createMissionBox.appendChild(wrapper);
+    }
+}
+
+// ======================================
+// FORMULAIRE DE CREATION DE MISSION
+// ======================================
+
+const startInput = document.getElementById("mStart");
+const endInput = document.getElementById("mEnd");
+
+if (startInput) autoFormatDateInput(startInput);
+if (endInput) autoFormatDateInput(endInput);
+
+// PATRACDR
+const patracdrToggle = document.getElementById("patracdrToggle");
+const patracdrFields = document.getElementById("patracdrFields");
+
+if (patracdrToggle && patracdrFields) {
+
+    patracdrToggle.addEventListener("change", () => {
+        patracdrFields.classList.toggle("hidden", !patracdrToggle.checked);
+    });
+}
+
+// Création mission
+if (createBtn) {
+
+    createBtn.addEventListener("click", async () => {
+
+        if (!canManage) {
+            alert("Tu n'as pas les droits pour créer une mission.");
+            return;
+        }
+
+        const title = document.getElementById("mTitle")?.value.trim() || "";
+        const description = document.getElementById("mDesc")?.value.trim() || "";
+        const location = document.getElementById("mLocation")?.value.trim() || "";
+        const concerned = document.getElementById("mConcerned")?.value.trim() || "Tous";
+
+        const start = frToIso(startInput?.value || "");
+        const end = frToIso(endInput?.value || "");
+
+        if (!title) {
+            alert("Le titre de la mission est obligatoire.");
+            return;
+        }
+
+        if (!start || !end) {
+            alert("Dates invalides. Utilise le format JJ/MM/AAAA.");
+            return;
+        }
+
+        if (end < start) {
+            alert("La date de fin ne peut pas être avant la date de début.");
+            return;
+        }
+
+        const groupSelect = document.getElementById("mGroup");
+
+        const group = isCDG
+            ? String(user.group)
+            : String(groupSelect?.value || "1");
+
+        if (!["1", "2", "3"].includes(group)) {
+            alert("Sélectionne un groupe valide.");
+            return;
+        }
+
+        const mission = {
+            title,
+            description,
+            start,
+            end,
+            location,
+            concerned,
+            group,
+            createdBy: user.login
+        };
+
+        if (patracdrToggle?.checked) {
+            mission.patracdr = {
+                personnel: document.getElementById("pPersonnel")?.value.trim() || "",
+                armement: document.getElementById("pArmement")?.value.trim() || "",
+                tenue: document.getElementById("pTenue")?.value.trim() || "",
+                radio: document.getElementById("pRadio")?.value.trim() || "",
+                alimentation: document.getElementById("pAlimentation")?.value.trim() || "",
+                camouflage: document.getElementById("pCamouflage")?.value.trim() || "",
+                divers: document.getElementById("pDivers")?.value.trim() || "",
+                rassemblement: document.getElementById("pRassemblement")?.value.trim() || ""
+            };
+        }
+
+        createBtn.disabled = true;
+
+        try {
+
+            await createMissionInDb(mission);
+
+            document.getElementById("mTitle").value = "";
+            document.getElementById("mDesc").value = "";
+            document.getElementById("mLocation").value = "";
+            document.getElementById("mConcerned").value = "";
+
+            if (startInput) startInput.value = "";
+            if (endInput) endInput.value = "";
+
+            if (patracdrToggle) patracdrToggle.checked = false;
+            if (patracdrFields) patracdrFields.classList.add("hidden");
+
+            [
+                "pPersonnel",
+                "pArmement",
+                "pTenue",
+                "pRadio",
+                "pAlimentation",
+                "pCamouflage",
+                "pDivers",
+                "pRassemblement"
+            ].forEach(id => {
+                const field = document.getElementById(id);
+                if (field) field.value = "";
+            });
+
+            alert("Mission créée.");
+
+        } catch (error) {
+            console.error(error);
+            alert("Erreur lors de la création de la mission.");
+        } finally {
+            createBtn.disabled = false;
+        }
+    });
+}
+
+// ======================================
+// BANDEAU MISSIONS EN ATTENTE
+// ======================================
+
+function updatePendingBanner() {
+
+    if (!pendingBanner || !isMember) return;
+
+    const today = getTodayIso();
+
+    const pending = missions.filter(mission => {
+
+        if (mission.archived) return false;
+        if (!isUserConcerned(mission, user)) return false;
+
+        if (mission.group && String(mission.group) !== String(user.group)) {
+            return false;
+        }
+
+        if (mission.end < today) return false;
+
+        const response = mission.responses?.[user.login];
+
+        const status = typeof response === "string"
+            ? response
+            : response?.status;
+
+        return !status;
+    });
+
+    if (pending.length === 0) {
+        pendingBanner.classList.add("hidden");
+        pendingBanner.innerHTML = "";
+        return;
+    }
+
+    pendingBanner.classList.remove("hidden");
+
+    pendingBanner.innerHTML = `
+        <strong>⚠ ${pending.length} mission(s) en attente de réponse</strong>
+        <p>Merci de renseigner ta disponibilité.</p>
+    `;
+}
+
+// ======================================
+// NOTIFICATIONS NOUVELLES MISSIONS
+// ======================================
+
+function checkMissionNotifications(newMissions) {
+
+    if (!missionsLoaded) {
+        previousMissions = {};
+
+        newMissions.forEach(mission => {
+            previousMissions[mission.id] = mission;
+        });
+
+        return;
+    }
+
+    newMissions.forEach(mission => {
+
+        const previous = previousMissions[mission.id];
+
+        if (!previous && mission.createdBy !== user.login) {
+
+            if (isMember) {
+
+                const groupMatches =
+                    !mission.group ||
+                    String(mission.group) === String(user.group);
+
+                if (!groupMatches || !isUserConcerned(mission, user)) {
+                    return;
+                }
+            }
+
+            notifyUser(
+                "Nouvelle mission BLEU4",
+                `Nouvelle mission le ${mission.start || ""}`
+            );
+        }
+
+        previousMissions[mission.id] = mission;
+    });
+}
+
+// ======================================
+// NOTIFICATIONS CHANGEMENT REPONSE
+// ======================================
+
+function checkResponseNotifications(newMissions) {
+
+    if (!missionsLoaded || isMember) return;
+
+    newMissions.forEach(mission => {
+
+        const previous = previousMissions[mission.id];
+
+        if (!previous) return;
+
+        const oldResponses = previous.responses || {};
+        const newResponses = mission.responses || {};
+
+        Object.entries(newResponses).forEach(([login, response]) => {
+
+            const oldStatus = getResponseStatus(oldResponses[login]);
+            const newStatus = getResponseStatus(response);
+
+            if (oldStatus !== newStatus && newStatus) {
+
+                const group = getPersonnelGroupFromApp(login);
+
+                if (isCDG && group !== String(user.group)) return;
+
+                notifyUser(
+                    "Réponse BLEU4",
+                    `${login} a renseigné sa disponibilité : ${newStatus}`
+                );
+            }
+        });
+
+        previousMissions[mission.id] = mission;
+    });
+}
+
+function getResponseStatus(entry) {
+    if (typeof entry === "string") return entry;
+    return entry?.status || "";
+}
+
+function getPersonnelGroupFromApp(login) {
+
+    const person = personnel.find(p =>
+        normalize(p.login) === normalize(login)
+    );
+
+    return person ? String(person.group) : null;
+}
+
+// ======================================
+// CHARGEMENT DU PERSONNEL
+// ======================================
+
+createPersonnelInterface();
+createMissionGroupField();
+
+listenPersonnel(data => {
+
+    personnel = normalizePersonnel(data);
+
+    refreshPersonnel();
+
+    personnelLoaded = true;
+
+    if (missionsLoaded) {
+        hideSplash();
+    }
+
+}, error => {
+    console.error("Erreur chargement personnel :", error);
+    personnel = [];
+    setPersonnelList([]);
+    personnelLoaded = true;
+});
+
+// ======================================
+// CHARGEMENT DES MISSIONS
+// ======================================
+
+listenMissions(data => {
+
+    const newMissions = Array.isArray(data) ? data : [];
+
+    checkMissionNotifications(newMissions);
+    checkResponseNotifications(newMissions);
+
+    missions = newMissions;
+
+    refreshApplication();
+
+    missionsLoaded = true;
+
+    if (personnelLoaded) {
+        clearTimeout(splashTimeout);
+        hideSplash();
+    }
+
+}, error => {
+    console.error("Erreur chargement missions :", error);
+    clearTimeout(splashTimeout);
+    hideSplash();
+});
+
+// ======================================
+// FIN APP
+// ======================================
+
+console.log("BLEU4 2027 chargé :", profile || user.role);
