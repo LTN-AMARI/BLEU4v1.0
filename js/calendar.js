@@ -1,7 +1,10 @@
 
 // ======================================
-// BLEU4 v2 - CALENDRIER 2027
+// BLEU4 2027 - CALENDRIER
+// Dates Firebase : AAAA-MM-JJ
 // ======================================
+
+import { isoToFr, getTodayIso } from "./dateUtils.js";
 
 const MONTHS = [
     "Janvier", "Février", "Mars", "Avril",
@@ -9,220 +12,208 @@ const MONTHS = [
     "Septembre", "Octobre", "Novembre", "Décembre"
 ];
 
-const COLORS = [
-    "#1976D2", "#388E3C", "#D32F2F", "#F9A825",
-    "#7B1FA2", "#0097A7", "#F57C00", "#5D4037",
-    "#455A64", "#C2185B"
-];
-
 let currentDate = new Date();
 let currentMonth = currentDate.getMonth();
 let currentYear = currentDate.getFullYear();
 
 let missions = [];
-let selectedDate = null;
-let onSelectCallback = null;
+let selectedDate = getTodayIso();
+
+const COLORS = [
+    "#f1c40f",
+    "#3498db",
+    "#2ecc71",
+    "#e67e22",
+    "#9b59b6"
+];
 
 // ======================================
 // INITIALISATION
 // ======================================
 
-export function initCalendar(onDateSelected) {
-
-    onSelectCallback = onDateSelected;
-
+export function initCalendar(callback) {
     const previous = document.getElementById("prevMonth");
     const next = document.getElementById("nextMonth");
 
-    if (previous) {
-        previous.addEventListener("click", () => {
+    previous?.addEventListener("click", () => {
+        currentMonth--;
 
-            currentMonth--;
+        if (currentMonth < 0) {
+            currentMonth = 11;
+            currentYear--;
+        }
 
-            if (currentMonth < 0) {
-                currentMonth = 11;
-                currentYear--;
-            }
+        renderCalendar();
+    });
 
-            renderCalendar();
-        });
-    }
+    next?.addEventListener("click", () => {
+        currentMonth++;
 
-    if (next) {
-        next.addEventListener("click", () => {
+        if (currentMonth > 11) {
+            currentMonth = 0;
+            currentYear++;
+        }
 
-            currentMonth++;
-
-            if (currentMonth > 11) {
-                currentMonth = 0;
-                currentYear++;
-            }
-
-            renderCalendar();
-        });
-    }
+        renderCalendar();
+    });
 
     renderCalendar();
+
+    if (callback) {
+        callback(selectedDate);
+    }
 }
 
 // ======================================
-// MISSIONS
+// DONNEES
 // ======================================
 
 export function setCalendarMissions(newMissions) {
-
-    missions = Array.isArray(newMissions)
-        ? newMissions
-        : [];
-
+    missions = Array.isArray(newMissions) ? newMissions : [];
     renderCalendar();
 }
 
-// ======================================
-// DATE SELECTIONNEE
-// ======================================
-
 export function getSelectedDate() {
-
     return selectedDate;
 }
 
 // ======================================
-// RENDU DU CALENDRIER
+// OUTILS
 // ======================================
 
-function renderCalendar() {
+function getDaysInMonth(year, month) {
+    return new Date(year, month + 1, 0).getDate();
+}
 
+function getFirstDayOfMonth(year, month) {
+    // Lundi = 0, dimanche = 6
+    return (new Date(year, month, 1).getDay() + 6) % 7;
+}
+
+function isMissionOnDate(mission, dateIso) {
+    if (!mission.start) return false;
+
+    const start = mission.start;
+    const end = mission.end || mission.start;
+
+    return dateIso >= start && dateIso <= end;
+}
+
+function getMissionCount(dateIso) {
+    return missions.filter(mission =>
+        isMissionOnDate(mission, dateIso)
+    ).length;
+}
+
+// ======================================
+// AFFICHAGE
+// ======================================
+
+export function renderCalendar() {
     const calendar = document.getElementById("calendar");
-    const title = document.getElementById("monthTitle");
+    const monthTitle = document.getElementById("monthTitle");
 
-    if (!calendar || !title) return;
+    if (!calendar || !monthTitle) return;
+
+    monthTitle.textContent =
+        `${MONTHS[currentMonth]} ${currentYear}`;
 
     calendar.innerHTML = "";
 
-    title.innerText =
-        `${MONTHS[currentMonth]} ${currentYear}`;
-
-    const firstDay = new Date(
+    const firstDay = getFirstDayOfMonth(
         currentYear,
-        currentMonth,
-        1
+        currentMonth
     );
 
-    let start = firstDay.getDay();
-
-    // Lundi = premier jour
-    start = start === 0 ? 6 : start - 1;
-
-    const daysInMonth = new Date(
+    const daysInMonth = getDaysInMonth(
         currentYear,
-        currentMonth + 1,
-        0
-    ).getDate();
+        currentMonth
+    );
 
-    // ==================================
-    // JOURS VIDES AVANT LE 1ER
-    // ==================================
+    const today = getTodayIso();
 
-    for (let i = 0; i < start; i++) {
-
+    // Cases vides avant le premier jour
+    for (let i = 0; i < firstDay; i++) {
         const empty = document.createElement("div");
-
-        empty.className = "day empty";
-
+        empty.className = "calendar-day empty";
         calendar.appendChild(empty);
     }
 
-    const today = new Date();
+    // Jours du mois
+    for (let day = 1; day <= daysInMonth; day++) {
+        const dateIso = [
+            currentYear,
+            String(currentMonth + 1).padStart(2, "0"),
+            String(day).padStart(2, "0")
+        ].join("-");
 
-    // ==================================
-    // JOURS DU MOIS
-    // ==================================
+        const cell = document.createElement("div");
+        cell.className = "calendar-day";
+        cell.textContent = day;
 
-    for (let d = 1; d <= daysInMonth; d++) {
-
-        const day = document.createElement("div");
-
-        day.className = "day";
-
-        const date =
-            `${currentYear}-${String(currentMonth + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
-
-        day.dataset.date = date;
-
-        // Date du jour
-        if (
-            today.getDate() === d &&
-            today.getMonth() === currentMonth &&
-            today.getFullYear() === currentYear
-        ) {
-            day.classList.add("today");
+        if (dateIso === today) {
+            cell.classList.add("today");
         }
 
-        // Date sélectionnée
-        if (date === selectedDate) {
-            day.classList.add("selected");
+        if (dateIso === selectedDate) {
+            cell.classList.add("selected");
         }
 
-        // Numéro du jour
-        const number = document.createElement("div");
+        const count = getMissionCount(dateIso);
 
-        number.className = "day-number";
-        number.innerText = d;
+        if (count > 0) {
+            cell.classList.add("has-mission");
 
-        day.appendChild(number);
+            const dot = document.createElement("span");
+            dot.className = "mission-dot";
+            dot.textContent = count > 1 ? count : "";
+            cell.appendChild(dot);
+        }
 
-        // ==================================
-        // PASTILLES DES MISSIONS
-        // ==================================
+        cell.addEventListener("click", () => {
+            selectedDate = dateIso;
 
-        const dots = document.createElement("div");
+            renderCalendar();
 
-        dots.className = "dots";
+            const title = document.getElementById("selectedDateTitle");
 
-        missions.forEach((mission, index) => {
-
-            if (!mission.start || !mission.end) return;
-
-            if (
-                date >= mission.start &&
-                date <= mission.end
-            ) {
-
-                const dot = document.createElement("div");
-
-                dot.className = "dot";
-
-                dot.style.background =
-                    COLORS[index % COLORS.length];
-
-                dots.appendChild(dot);
+            if (title) {
+                title.textContent = `Missions du ${isoToFr(dateIso)}`;
             }
+
+            document.dispatchEvent(
+                new CustomEvent("bleu4-date-selected", {
+                    detail: { date: dateIso }
+                })
+            );
         });
 
-        day.appendChild(dots);
-
-        // ==================================
-        // SELECTION D'UNE DATE
-        // ==================================
-
-        day.addEventListener("click", () => {
-
-            selectedDate = date;
-
-            document
-                .querySelectorAll(".day")
-                .forEach(element => {
-                    element.classList.remove("selected");
-                });
-
-            day.classList.add("selected");
-
-            if (onSelectCallback) {
-                onSelectCallback(date);
-            }
-        });
-
-        calendar.appendChild(day);
+        calendar.appendChild(cell);
     }
+
+    // Mise à jour du titre de la date sélectionnée
+    const title = document.getElementById("selectedDateTitle");
+
+    if (title && selectedDate) {
+        title.textContent = `Missions du ${isoToFr(selectedDate)}`;
+    }
+}
+
+// ======================================
+// SELECTION EXTERNE
+// ======================================
+
+export function selectCalendarDate(dateIso) {
+    if (!dateIso || !/^\d{4}-\d{2}-\d{2}$/.test(dateIso)) {
+        return;
+    }
+
+    selectedDate = dateIso;
+
+    const [year, month] = dateIso.split("-").map(Number);
+
+    currentYear = year;
+    currentMonth = month - 1;
+
+    renderCalendar();
 }
