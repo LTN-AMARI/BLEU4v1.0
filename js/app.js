@@ -1,7 +1,6 @@
 
 /* ==========================================
    BLEU4 2027 - APPLICATION PRINCIPALE
-   Gestion des missions, calendrier et profils
 ========================================== */
 
 import {
@@ -59,13 +58,9 @@ if (!user) {
     throw new Error("Session utilisateur absente.");
 }
 
-const isMember = isMemberUser();
+const memberMode = isMember(user);
+const commandMode = !memberMode;
 const canCreate = canCreateMission(user);
-const isCommand = !isMember;
-
-function isMemberUser() {
-    return user.role === "membre";
-}
 
 function getUserGroup() {
     if (isCDG(user)) {
@@ -76,7 +71,7 @@ function getUserGroup() {
 }
 
 function getProfileLabel() {
-    if (isMember) {
+    if (memberMode) {
         return `MEMBRE — GROUPE ${getUserGroup()}`;
     }
 
@@ -124,10 +119,7 @@ function hideSplashScreen() {
     setTimeout(() => {
         splash.classList.add("fade-out");
 
-        setTimeout(() => {
-            splash.remove();
-        }, 850);
-
+        setTimeout(() => splash.remove(), 850);
     }, remaining);
 }
 
@@ -165,17 +157,17 @@ if (createBox) {
 
 if (allMissionsBox) {
     allMissionsBox.style.display =
-        isCommand ? "block" : "none";
+        commandMode ? "block" : "none";
 }
 
 if (archivedMissionsBox) {
     archivedMissionsBox.style.display =
-        isCommand ? "block" : "none";
+        commandMode ? "block" : "none";
 }
 
 if (presenceCounterBox) {
     presenceCounterBox.style.display =
-        isCommand ? "block" : "none";
+        commandMode ? "block" : "none";
 }
 
 
@@ -184,32 +176,28 @@ if (presenceCounterBox) {
 ========================================== */
 
 if (missionGroupSelect) {
-
     if (isCDG(user)) {
         missionGroupSelect.value = getUserGroup();
         missionGroupSelect.disabled = true;
     }
 
-    if (isSOA(user) || isMember) {
+    if (isSOA(user) || memberMode) {
         missionGroupSelect.disabled = true;
     }
 }
 
 
 /* ==========================================
-   7. FILTRAGE DES MISSIONS
+   7. VISIBILITE DES MISSIONS
 ========================================== */
 
 function canSeeMissionForUser(mission) {
 
-    // CDS et SOA : visibilité complète
     if (isCDS(user) || isSOA(user)) {
         return true;
     }
 
-    // CDG : son groupe et les missions communes
     if (isCDG(user)) {
-
         if (!mission.group) return true;
 
         return (
@@ -218,11 +206,7 @@ function canSeeMissionForUser(mission) {
         );
     }
 
-    // MEMBRE
-    if (isMember) {
-
-        // Anciennes missions sans groupe :
-        // visibles uniquement si le membre est concerné
+    if (memberMode) {
         if (!mission.group) {
             return isUserConcerned(mission, user);
         }
@@ -244,12 +228,11 @@ function canSeeMissionForUser(mission) {
 const pendingBanner = document.getElementById("pendingBanner");
 
 pendingBanner?.addEventListener("click", () => {
-    document.querySelector(".calendar-panel")
+    document.getElementById("calendar")
         ?.scrollIntoView({ behavior: "smooth" });
 });
 
 function updatePendingBanner(pendingMissions) {
-
     if (!pendingBanner) return;
 
     if (!pendingMissions.length) {
@@ -267,17 +250,13 @@ function updatePendingBanner(pendingMissions) {
     pendingBanner.classList.remove("hidden");
 }
 
-// Autorisation demandée après une action utilisateur
 let notificationRequested = false;
 
 document.addEventListener("click", () => {
-
     if (notificationRequested) return;
 
     notificationRequested = true;
-
     requestNotificationPermission();
-
 }, { once: true });
 
 
@@ -286,15 +265,9 @@ document.addEventListener("click", () => {
 ========================================== */
 
 document.querySelectorAll(".section-toggle").forEach(title => {
-
     title.addEventListener("click", () => {
-
-        const content = title.nextElementSibling;
-
-        content?.classList.toggle("hidden");
-
+        title.nextElementSibling?.classList.toggle("hidden");
     });
-
 });
 
 
@@ -306,19 +279,16 @@ let allMissions = [];
 let visibleMissions = [];
 
 let missionsLoaded = false;
-let personnelLoaded = false;
 
 let knownMissionIds = null;
 let knownResponses = null;
 
 
 /* ==========================================
-   11. RAFRAICHISSEMENT DES AFFICHAGES
+   11. RAFRAICHISSEMENT
 ========================================== */
 
 function refreshViews() {
-
-    // Le calendrier reçoit uniquement les missions visibles
     setCalendarMissions(visibleMissions);
 
     const selectedDate = getSelectedDate();
@@ -327,7 +297,7 @@ function refreshViews() {
         renderMissionList(allMissions, selectedDate, user);
     }
 
-    if (isCommand) {
+    if (commandMode) {
         renderAllMissions(allMissions, user);
         renderArchivedMissions(allMissions, user);
         renderPresenceCounter(allMissions, user);
@@ -343,15 +313,12 @@ initCalendar(date => {
     renderMissionList(allMissions, date, user);
 });
 
-// Rafraîchissement de la liste à chaque clic sur une date
 document.addEventListener("bleu4-date-selected", event => {
-
     const date = event.detail?.date;
 
-    if (!date) return;
-
-    renderMissionList(allMissions, date, user);
-
+    if (date) {
+        renderMissionList(allMissions, date, user);
+    }
 });
 
 
@@ -360,16 +327,11 @@ document.addEventListener("bleu4-date-selected", event => {
 ========================================== */
 
 listenPersonnel(personnel => {
+    setPersonnelList(personnel || []);
 
-    setPersonnelList(personnel);
-
-    personnelLoaded = true;
-
-    // Actualisation des compteurs après chargement
     if (missionsLoaded) {
         refreshViews();
     }
-
 });
 
 
@@ -378,73 +340,53 @@ listenPersonnel(personnel => {
 ========================================== */
 
 function getPendingMissions(missions) {
-
-    if (!isMember) return [];
+    if (!memberMode) return [];
 
     const today = getTodayIso();
 
     return missions.filter(mission => {
-
-        // Mission terminée
         if (mission.end && mission.end < today) {
             return false;
         }
 
-        // Vérification du groupe
         if (!canSeeMissionForUser(mission)) {
             return false;
         }
 
-        // Le membre doit être concerné
         if (!isUserConcerned(mission, user)) {
             return false;
         }
 
-        // Réponse déjà enregistrée
         const response = mission.responses?.[user.login];
 
-        if (getStatus(response)) {
-            return false;
-        }
-
-        return true;
-
+        return !getStatus(response);
     });
 }
 
 
 /* ==========================================
-   15. DETECTION DES NOUVELLES MISSIONS
+   15. NOUVELLES MISSIONS
 ========================================== */
 
 function detectNewMissions(missions) {
-
     const currentIds = new Set(
         missions.map(mission => mission.id)
     );
 
-    // Première lecture : pas de notification historique
     if (knownMissionIds === null) {
         knownMissionIds = currentIds;
         return;
     }
 
-    const newMissions = missions.filter(mission => {
-
-        return (
-            !knownMissionIds.has(mission.id) &&
-            mission.createdBy !== user.login &&
-            canSeeMissionForUser(mission)
-        );
-
-    });
+    const newMissions = missions.filter(mission => (
+        !knownMissionIds.has(mission.id) &&
+        mission.createdBy !== user.login &&
+        canSeeMissionForUser(mission)
+    ));
 
     newMissions.forEach(mission => {
-
-        // Pour les membres, notification uniquement
-        // si la mission les concerne
         if (
-            isMember &&
+            memberMode &&
             !isUserConcerned(mission, user)
         ) {
             return;
@@ -454,14 +396,12 @@ function detectNewMissions(missions) {
             `Nouvelle mission le ${isoToFr(mission.start)}.`;
 
         playAlertSound();
-
         showMissionBanner(message);
 
         showSystemNotification(
             "Nouvelle mission BLEU4",
             message
         );
-
     });
 
     knownMissionIds = currentIds;
@@ -469,32 +409,26 @@ function detectNewMissions(missions) {
 
 
 /* ==========================================
-   16. DETECTION DES NOUVELLES REPONSES
+   16. NOUVELLES REPONSES
 ========================================== */
 
 function detectNewResponses(missions) {
-
     const currentResponses = new Map();
 
     missions.forEach(mission => {
-
         currentResponses.set(
             mission.id,
             { ...(mission.responses || {}) }
         );
-
     });
 
-    // Première lecture : mémorisation sans alerte
     if (knownResponses === null) {
         knownResponses = currentResponses;
         return;
     }
 
-    if (isCommand) {
-
+    if (commandMode) {
         missions.forEach(mission => {
-
             if (!canSeeMissionForUser(mission)) return;
 
             const previous =
@@ -504,7 +438,6 @@ function detectNewResponses(missions) {
                 currentResponses.get(mission.id) || {};
 
             Object.entries(current).forEach(([login, entry]) => {
-
                 const status = getStatus(entry);
                 const previousStatus = getStatus(previous[login]);
 
@@ -524,11 +457,8 @@ function detectNewResponses(missions) {
                     "Réponse à une mission",
                     message
                 );
-
             });
-
         });
-
     }
 
     knownResponses = currentResponses;
@@ -540,7 +470,6 @@ function detectNewResponses(missions) {
 ========================================== */
 
 listenMissions(missions => {
-
     allMissions = Array.isArray(missions) ? missions : [];
 
     visibleMissions = allMissions.filter(
@@ -549,15 +478,12 @@ listenMissions(missions => {
 
     missionsLoaded = true;
 
-    // Affichages
     refreshViews();
 
-    // Alertes
     detectNewMissions(allMissions);
     detectNewResponses(allMissions);
 
-    // Missions à valider
-    if (isMember) {
+    if (memberMode) {
         updatePendingBanner(
             getPendingMissions(allMissions)
         );
@@ -566,14 +492,8 @@ listenMissions(missions => {
     hideSplashScreen();
 
 }, error => {
-
-    console.error(
-        "Erreur de chargement Firebase :",
-        error
-    );
-
+    console.error("Erreur Firebase :", error);
     hideSplashScreen();
-
 });
 
 
@@ -585,24 +505,17 @@ const patracdrToggle = document.getElementById("patracdrToggle");
 const patracdrFields = document.getElementById("patracdrFields");
 
 patracdrToggle?.addEventListener("change", () => {
-
     patracdrFields?.classList.toggle(
         "hidden",
         !patracdrToggle.checked
     );
-
 });
 
-
 function collectPatracdrFromForm() {
+    if (!patracdrToggle?.checked) return null;
 
-    if (!patracdrToggle?.checked) {
-        return null;
-    }
-
-    const getValue = id => {
-        return document.getElementById(id)?.value.trim() || "";
-    };
+    const getValue = id =>
+        document.getElementById(id)?.value.trim() || "";
 
     return {
         personnel: getValue("pPersonnel"),
@@ -614,12 +527,9 @@ function collectPatracdrFromForm() {
         divers: getValue("pDivers"),
         rassemblement: getValue("pRassemblement")
     };
-
 }
 
-
 function resetPatracdrForm() {
-
     if (patracdrToggle) {
         patracdrToggle.checked = false;
     }
@@ -636,15 +546,10 @@ function resetPatracdrForm() {
         "pDivers",
         "pRassemblement"
     ].forEach(id => {
-
         const element = document.getElementById(id);
 
-        if (element) {
-            element.value = "";
-        }
-
+        if (element) element.value = "";
     });
-
 }
 
 
@@ -661,11 +566,9 @@ autoFormatDateInput(mEnd);
 ========================================== */
 
 createBtn?.addEventListener("click", async () => {
-
     if (!canCreate) return;
 
     const title = mTitle?.value.trim() || "";
-
     const start = frToIso(mStart?.value || "");
     const end = frToIso(mEnd?.value || "");
 
@@ -694,34 +597,22 @@ createBtn?.addEventListener("click", async () => {
     }
 
     const mission = {
-
         title,
-
         description: mDesc?.value.trim() || "",
-
         start,
-
         end,
-
         location: mLocation?.value.trim() || "",
-
         concerned: mConcerned?.value.trim() || "Tous",
-
         createdBy: user.login,
-
         group,
-
         patracdr: collectPatracdrFromForm()
-
     };
 
     createBtn.disabled = true;
 
     try {
-
         await createMissionInDb(mission);
 
-        // Réinitialisation du formulaire
         if (mTitle) mTitle.value = "";
         if (mDesc) mDesc.value = "";
         if (mStart) mStart.value = "";
@@ -738,28 +629,21 @@ createBtn?.addEventListener("click", async () => {
         alert("Mission créée avec succès.");
 
     } catch (error) {
-
-        console.error(
-            "Erreur création mission :",
-            error
-        );
+        console.error("Erreur création mission :", error);
 
         alert(
             "Impossible de créer la mission. Vérifie la connexion Firebase."
         );
 
     } finally {
-
         createBtn.disabled = false;
-
     }
-
 });
 
 
 /* ==========================================
-   21. INITIALISATION TERMINEE
+   21. FIN INITIALISATION
 ========================================== */
 
-console.log("BLEU4 2027 : application initialisée.");
+console.log("BLEU4 2027 initialisé.");
 console.log("Profil :", getProfileLabel());
