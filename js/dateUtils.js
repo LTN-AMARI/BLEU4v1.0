@@ -1,59 +1,61 @@
 
 // ======================================
-// BLEU4 v2 - DATE UTILS 2027
+// BLEU4 2027 - DATE UTILS
 // Base Firebase : AAAA-MM-JJ
-// Affichage utilisateur : JJ/MM/AAAA
+// Affichage : JJ/MM/AAAA
 // ======================================
 
 // ======================================
 // ISO -> FR
-// "2026-07-04" -> "04/07/2026"
 // ======================================
 
 export function isoToFr(iso) {
-
     if (!iso) return "";
 
     const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
 
     if (!match) return "";
 
-    const [, y, m, d] = match;
+    const [, year, month, day] = match;
 
-    if (!isValidDate(y, m, d)) return "";
+    if (!isValidDate(year, month, day)) return "";
 
-    return `${d}/${m}/${y}`;
+    return `${day}/${month}/${year}`;
 }
 
 // ======================================
 // FR -> ISO
-// "04/07/2026" -> "2026-07-04"
 // ======================================
 
 export function frToIso(fr) {
+    if (!fr) return "";
 
-    const match = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(
-        (fr || "").trim()
-    );
+    const match = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(fr.trim());
 
-    if (!match) return null;
+    if (!match) return "";
 
-    const [, d, m, y] = match;
+    const [, day, month, year] = match;
 
-    if (!isValidDate(y, m, d)) return null;
+    if (!isValidDate(year, month, day)) return "";
 
-    return `${y}-${m}-${d}`;
+    return `${year}-${month}-${day}`;
 }
 
 // ======================================
-// VERIFICATION D'UNE DATE
+// VALIDATION DATE
 // ======================================
 
-function isValidDate(year, month, day) {
-
+export function isValidDate(year, month, day) {
     const y = Number(year);
     const m = Number(month);
     const d = Number(day);
+
+    if (!Number.isInteger(y) || !Number.isInteger(m) || !Number.isInteger(d)) {
+        return false;
+    }
+
+    if (y < 1900 || y > 2200) return false;
+    if (m < 1 || m > 12) return false;
 
     const date = new Date(y, m - 1, d);
 
@@ -65,59 +67,68 @@ function isValidDate(year, month, day) {
 }
 
 // ======================================
-// FORMATAGE AUTOMATIQUE
-// Ajoute les "/" pendant la saisie
+// FORMATAGE SAISIE JJ/MM/AAAA
 // ======================================
 
-export function autoFormatDateInput(inputEl) {
+export function autoFormatDateInput(input) {
+    if (!input) return;
 
-    if (!inputEl) return;
+    input.placeholder = "JJ/MM/AAAA";
+    input.maxLength = 10;
 
-    inputEl.addEventListener("input", () => {
+    input.addEventListener("input", () => {
+        let value = input.value.replace(/\D/g, "").slice(0, 8);
 
-        const start = inputEl.selectionStart;
-        const oldValue = inputEl.value;
-
-        const digits = oldValue
-            .replace(/\D/g, "")
-            .slice(0, 8);
-
-        let formatted = digits;
-
-        if (digits.length > 4) {
-
-            formatted =
-                `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4)}`;
-
-        } else if (digits.length > 2) {
-
-            formatted =
-                `${digits.slice(0, 2)}/${digits.slice(2)}`;
+        if (value.length > 4) {
+            value = `${value.slice(0, 2)}/${value.slice(2, 4)}/${value.slice(4)}`;
+        } else if (value.length > 2) {
+            value = `${value.slice(0, 2)}/${value.slice(2)}`;
         }
 
-        inputEl.value = formatted;
-
-        // Replace le curseur à la fin
-        if (start !== null) {
-            inputEl.setSelectionRange(
-                formatted.length,
-                formatted.length
-            );
-        }
+        input.value = value;
     });
 }
 
 // ======================================
-// DATE DU JOUR -> ISO
+// DATE DU JOUR EN ISO
 // ======================================
 
 export function getTodayIso() {
+    const now = new Date();
 
-    const d = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, "0");
+    const day = String(now.getDate()).padStart(2, "0");
 
-    const y = d.getFullYear();
-    const m = String(d.getMonth() + 1).padStart(2, "0");
-    const day = String(d.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+}
 
-    return `${y}-${m}-${day}`;
+// ======================================
+// AJOUT DE JOURS
+// ======================================
+
+export function addDaysToIso(iso, numberOfDays) {
+    if (!iso) return "";
+
+    const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
+
+    if (!match) return "";
+
+    const [, year, month, day] = match;
+
+    if (!isValidDate(year, month, day)) return "";
+
+    const date = new Date(
+        Number(year),
+        Number(month) - 1,
+        Number(day)
+    );
+
+    date.setDate(date.getDate() + Number(numberOfDays));
+
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, "0");
+    const d = String(date.getDate()).padStart(2, "0");
+
+    return `${y}-${m}-${d}`;
 }
